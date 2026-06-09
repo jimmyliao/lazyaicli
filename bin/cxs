@@ -1,16 +1,24 @@
 #!/usr/bin/env bash
 # cxs — Codex CLI Session browser & resume
-# 列出本機所有 codex session（名稱 / 目錄 / 時間），選一個即還原。
+# List your local codex sessions (name / directory / time); pick one to resume.
 #
-#   cxs           # 互動挑選（fzf，否則數字選單）→ 自動 cd cwd && codex resume <id>
-#   cxs -l        # 只列出（最新在最下方，編號 1 = 最新）
-#   cxs <id|關鍵字> # 直接還原 id 開頭相符、或名稱含關鍵字的那個
-#   cxs <N>       # 用清單編號還原（1 = 最新）
+#   cxs              # interactive pick (fzf, else number menu) -> cd cwd && codex resume <id>
+#   cxs -l           # list only (newest at the bottom, number 1 = newest)
+#   cxs <id|keyword> # resume by id prefix, or name keyword
+#   cxs <N>          # resume by list number (1 = newest)
 #
-# session 由 codex 自動寫於 ~/.codex/sessions/YYYY/MM/DD/rollout-*-<UUID>.jsonl（明文 jsonl）。
+# Sessions are written by codex at ~/.codex/sessions/YYYY/MM/DD/rollout-*-<UUID>.jsonl (plain JSONL).
+# Language: auto (zh if your locale is zh*, else en). Override with LAZYAICLI_LANG=en|zh.
 set -euo pipefail
 
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+
+# --- i18n: pick language once, then t <en> <zh> ----------------------------
+case "${LAZYAICLI_LANG:-${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}}" in
+  zh*) _LANG=zh ;;
+  *)   _LANG=en ;;
+esac
+t() { if [ "$_LANG" = zh ]; then printf '%s' "$2"; else printf '%s' "$1"; fi; }
 
 gather() {
   python3 - "$CODEX_HOME" <<'PY'
@@ -26,8 +34,8 @@ def ago(mt):
     if s < 172800: return f"{int(s/3600)}h ago"
     return f"{int(s/86400)}d ago"
 
-# codex 會把 AGENTS.md / environment / instructions 當「user 訊息」注入在開頭，
-# 要跳過這些才能拿到真正的第一個使用者 prompt。
+# codex injects AGENTS.md / environment / instructions as "user" messages at the
+# start; skip those to reach the real first user prompt.
 def is_injected(txt):
     t = txt.lstrip()
     if not t or t[0] in "<#":
@@ -49,7 +57,7 @@ for f in glob.glob(os.path.join(sess, "**", "*.jsonl"), recursive=True):
     sid = cwd = name = None
     try:
         with open(f, "r", encoding="utf-8", errors="ignore") as fh:
-            chunk = fh.read(262144)  # 頭 256KB：略過 AGENTS.md/env 注入後仍能讀到首個真 prompt
+            chunk = fh.read(262144)  # head 256KB: still reaches the first real prompt past AGENTS.md/env injections
     except OSError:
         continue
     for line in chunk.splitlines():
@@ -73,30 +81,32 @@ for f in glob.glob(os.path.join(sess, "**", "*.jsonl"), recursive=True):
                         name = " ".join(txt.split())
         if sid and name:
             break
-    if not sid:  # 退路：檔名尾端 UUID
+    if not sid:  # fallback: trailing UUID in the filename
         base = os.path.basename(f)
         sid = base.rsplit("-", 5)[-5:] and "-".join(base[:-6].split("-")[-5:]) or base[:-6]
     name = (name or "(untitled)")[:70]
     short_cwd = (cwd or "(unknown cwd)").replace(os.path.expanduser("~"), "~")
     disp = f"{ago(mt):>8}  [{name}]  {short_cwd}"
-    # TSV: id \t cwd \t mtime \t name \t (preview空) \t displayline
+    # TSV: id \t cwd \t mtime \t name \t (preview empty) \t displayline
     print("\t".join([sid, cwd or "", f"{mt:.0f}", name, "", disp]))
 PY
 }
 
 resume() {
   local id="$1" cwd="$2"
-  # DRYRUN：只印指令、不需要 codex（純預覽）
+  # DRYRUN: just print the command (no codex needed) — preview only.
   if [ "${CXS_DRYRUN:-}" = "1" ]; then
     echo "→ cd ${cwd:-\$HOME} && codex resume $id"
     return 0
   fi
-  # 還原需要 codex 在 PATH（列出不需要）
+  # Resuming needs codex on PATH (listing does not).
   if ! command -v codex >/dev/null 2>&1; then
-    echo "✗ 找不到 'codex' 指令——未安裝 Codex CLI 或不在 PATH。安裝後即可還原。" >&2
+    echo "$(t "✗ 'codex' not found — Codex CLI isn't installed or not on PATH. Install it to resume." \
+             "✗ 找不到 'codex' 指令——未安裝 Codex CLI 或不在 PATH。安裝後即可還原。")" >&2
     echo "  https://github.com/openai/codex" >&2
     exit 1
   fi
+  # CXS_EMIT=1: just print cwd<TAB>id for the sourced cxs() function to cd + resume in the current shell.
   if [ "${CXS_EMIT:-}" = "1" ]; then
     printf '%s\t%s\n' "$cwd" "$id"
     return 0
@@ -105,7 +115,8 @@ resume() {
   if [ -n "$cwd" ] && cd "$cwd" 2>/dev/null; then
     :
   else
-    [ -n "$cwd" ] && echo "⚠ 目錄不存在：$cwd，改在 \$HOME 還原" >&2
+    [ -n "$cwd" ] && echo "$(t "⚠ directory not found: ${cwd} — resuming from \$HOME instead" \
+                              "⚠ 目錄不存在：${cwd}，改在 \$HOME 還原")" >&2
     cd "$HOME"
   fi
   exec codex resume "$id"
@@ -113,33 +124,38 @@ resume() {
 
 main() {
   local tsv
-  tsv="$(gather | sort -t$'\t' -k3,3nr)"
+  tsv="$(gather | sort -t$'\t' -k3,3nr)"   # newest first
   if [ -z "$tsv" ]; then
     if [ ! -d "$CODEX_HOME/sessions" ]; then
-      echo "找不到 codex session 目錄（$CODEX_HOME/sessions）——裝了 Codex CLI 並用過至少一次嗎？" >&2
+      echo "$(t "No codex sessions dir (${CODEX_HOME}/sessions) — is Codex CLI installed and used at least once?" \
+               "找不到 codex session 目錄（${CODEX_HOME}/sessions）——裝了 Codex CLI 並用過至少一次嗎？")" >&2
     else
-      echo "目前沒有任何 codex session（$CODEX_HOME/sessions）。" >&2
+      echo "$(t "No codex sessions yet (${CODEX_HOME}/sessions)." \
+               "目前沒有任何 codex session（${CODEX_HOME}/sessions）。")" >&2
     fi
     exit 1
   fi
 
+  # List only (newest at the bottom, next to the prompt; number 1 = newest).
   if [ "${1:-}" = "-l" ] || [ "${1:-}" = "--list" ] || [ "${1:-}" = "ls" ] || [ "${1:-}" = "list" ]; then
     printf '%s\n' "$tsv" | awk -F'\t' '{n[NR]=$6} END{for(i=NR;i>=1;i--) printf "%2d) %s\n", i, n[i]}'
     exit 0
   fi
 
+  # Direct argument: a pure number = list index (1 = newest); otherwise id prefix / keyword.
   if [ -n "${1:-}" ]; then
     local match
     if printf '%s' "$1" | grep -qE '^[0-9]+$'; then
       match="$(printf '%s\n' "$tsv" | sed -n "${1}p")"
       if [ -z "$match" ]; then
-        echo "沒有第 $1 個 session（共 $(printf '%s\n' "$tsv" | grep -c .) 個）" >&2
+        local total; total="$(printf '%s\n' "$tsv" | grep -c .)"
+        echo "$(t "No session #${1} (${total} total)" "沒有第 ${1} 個 session（共 ${total} 個）")" >&2
         exit 1
       fi
     else
       match="$(printf '%s\n' "$tsv" | grep -i -m1 -- "$1" || true)"
       if [ -z "$match" ]; then
-        echo "沒有符合「$1」的 session" >&2
+        echo "$(t "No session matching \"${1}\"" "沒有符合「${1}」的 session")" >&2
         exit 1
       fi
     fi
@@ -147,21 +163,22 @@ main() {
     exit 0
   fi
 
+  # Interactive pick.
   if command -v fzf >/dev/null 2>&1; then
     local pick
     pick="$(printf '%s\n' "$tsv" \
       | fzf --delimiter='\t' --with-nth=6 --height=90% --reverse \
-            --prompt='resume> ' --header='↑↓ 選 codex session，Enter 還原，Esc 取消')" || exit 0
+            --prompt='resume> ' --header="$(t "↑↓ choose · Enter resume · Esc cancel" "↑↓ 選 codex session · Enter 還原 · Esc 取消")")" || exit 0
     [ -z "$pick" ] && exit 0
     resume "$(printf '%s' "$pick" | cut -f1)" "$(printf '%s' "$pick" | cut -f2)"
   else
     printf '%s\n' "$tsv" | awk -F'\t' '{printf "%2d) %s\n", NR, $6}'
-    printf '選擇 #（Enter 取消）：'
+    printf '%s' "$(t "Pick # (Enter to cancel): " "選擇 #（Enter 取消）：")"
     read -r n
     [ -z "$n" ] && exit 0
     local line
     line="$(printf '%s\n' "$tsv" | sed -n "${n}p")"
-    [ -z "$line" ] && { echo "無效選擇" >&2; exit 1; }
+    [ -z "$line" ] && { echo "$(t "invalid choice" "無效選擇")" >&2; exit 1; }
     resume "$(printf '%s' "$line" | cut -f1)" "$(printf '%s' "$line" | cut -f2)"
   fi
 }

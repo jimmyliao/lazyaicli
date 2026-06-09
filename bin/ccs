@@ -1,15 +1,24 @@
 #!/usr/bin/env bash
 # ccs — Claude Code Session browser & resume
-# 列出本機所有 Claude Code session（含標題 / 上次 prompt / 目錄），選一個即還原。
+# List your local Claude Code sessions (title / last prompt / directory); pick one to resume.
 #
-#   ccs           # 互動挑選（有 fzf 用 fzf，否則數字選單）→ 自動 cd cwd && claude --resume
-#   ccs -l        # 只列出，不還原（檢視用）
-#   ccs <id|關鍵字> # 直接還原 id 開頭相符、或標題/最後prompt含關鍵字的那個
+#   ccs              # interactive pick (fzf, else number menu) -> cd cwd && claude --resume
+#   ccs -l           # list only, no resume
+#   ccs <id|keyword> # resume by id prefix, or title/last-prompt keyword
+#   ccs <N>          # resume by list number (1 = newest)
 #
-# session 由 Claude Code 自動持續寫入，無需手動 save。
+# Sessions are written continuously by Claude Code itself — no manual save needed.
+# Language: auto (zh if your locale is zh*, else en). Override with LAZYAICLI_LANG=en|zh.
 set -euo pipefail
 
 PROJECTS="${CLAUDE_PROJECTS:-$HOME/.claude/projects}"
+
+# --- i18n: pick language once, then t <en> <zh> ----------------------------
+case "${LAZYAICLI_LANG:-${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}}" in
+  zh*) _LANG=zh ;;
+  *)   _LANG=en ;;
+esac
+t() { if [ "$_LANG" = zh ]; then printf '%s' "$2"; else printf '%s' "$1"; fi; }
 
 gather() {
   python3 - "$PROJECTS" <<'PY'
@@ -35,7 +44,7 @@ for f in glob.glob(os.path.join(root, "*", "*.jsonl")):
     ctitle = aititle = lastp = cwd = None
     try:
         with open(f, "rb") as fh:
-            if size > 262144:          # 大檔：頭 16KB（啟動 cwd）+ 尾 256KB（標題/最後prompt）
+            if size > 262144:          # big file: head 16KB (launch cwd) + tail 256KB (title/last prompt)
                 head = fh.read(16384).decode("utf-8", "ignore")
                 fh.seek(-262144, 2)
                 fh.readline()
@@ -44,8 +53,9 @@ for f in glob.glob(os.path.join(root, "*", "*.jsonl")):
                 head = tail = fh.read().decode("utf-8", "ignore")
     except OSError:
         continue
-    # 啟動目錄 = 第一筆 cwd。claude --resume 用「啟動目錄→專案目錄」對應來找 session，
-    # 不是 session 中途 cd 到的最後 cwd；用錯的話會 No conversation found。
+    # Launch dir = the FIRST cwd. `claude --resume` resolves a session by
+    # current-dir -> project-dir, not the last cwd a session cd'ed into;
+    # using the wrong one yields "No conversation found".
     for line in head.splitlines():
         line = line.strip()
         if not line:
@@ -57,7 +67,7 @@ for f in glob.glob(os.path.join(root, "*", "*.jsonl")):
         if d.get("cwd"):
             cwd = d.get("cwd")
             break
-    # 標題 / 最後 prompt 在尾端
+    # Title / last prompt live near the end.
     for line in tail.splitlines():
         line = line.strip()
         if not line:
@@ -73,9 +83,9 @@ for f in glob.glob(os.path.join(root, "*", "*.jsonl")):
             aititle = d.get("aiTitle") or aititle
         elif t == "last-prompt":
             lastp = d.get("lastPrompt") or lastp
-        if cwd is None and d.get("cwd"):   # 小檔/頭沒抓到時的退路
+        if cwd is None and d.get("cwd"):   # fallback if head had no cwd (small files)
             cwd = d.get("cwd")
-    if not cwd:                        # 退路：用 project 目錄名還原 cwd
+    if not cwd:                        # last resort: decode the project dir name
         dn = os.path.basename(os.path.dirname(f))
         cwd = "/" + dn.strip("-").replace("-", "/")
     title = ctitle or aititle or "(untitled)"
@@ -92,25 +102,27 @@ PY
 
 resume() {
   local id="$1" cwd="$2"
-  # DRYRUN：只印指令、不需要 claude（純預覽）
+  # DRYRUN: just print the command (no claude needed) — preview only.
   if [ "${CCS_DRYRUN:-}" = "1" ]; then
     echo "→ cd ${cwd:-\$HOME} && claude --resume $id"
     return 0
   fi
-  # 還原需要 claude 在 PATH（列出不需要）
+  # Resuming needs claude on PATH (listing does not).
   if ! command -v claude >/dev/null 2>&1; then
-    echo "✗ 找不到 'claude' 指令——未安裝 Claude Code 或不在 PATH。安裝後即可還原。" >&2
+    echo "$(t "✗ 'claude' not found — Claude Code isn't installed or not on PATH. Install it to resume." \
+             "✗ 找不到 'claude' 指令——未安裝 Claude Code 或不在 PATH。安裝後即可還原。")" >&2
     echo "  https://docs.claude.com/claude-code" >&2
     exit 1
   fi
-  # CCS_EMIT=1：只輸出 cwd<TAB>id，交給 sourced 的 ccs() function 在當前 shell cd + resume
+  # CCS_EMIT=1: just print cwd<TAB>id for the sourced ccs() function to cd + resume in the current shell.
   if [ "${CCS_EMIT:-}" = "1" ]; then
     printf '%s\t%s\n' "$cwd" "$id"
     return 0
   fi
   echo "→ cd $cwd && claude --resume $id"
   if ! cd "$cwd" 2>/dev/null; then
-    echo "⚠ 目錄不存在：$cwd，改在 \$HOME 還原" >&2
+    echo "$(t "⚠ directory not found: ${cwd} — resuming from \$HOME instead" \
+             "⚠ 目錄不存在：${cwd}，改在 \$HOME 還原")" >&2
     cd "$HOME"
   fi
   exec claude --resume "$id"
@@ -118,36 +130,38 @@ resume() {
 
 main() {
   local tsv
-  tsv="$(gather | sort -t$'\t' -k3,3nr)"   # 依 mtime 由新到舊
+  tsv="$(gather | sort -t$'\t' -k3,3nr)"   # newest first
   if [ -z "$tsv" ]; then
     if [ ! -d "$PROJECTS" ]; then
-      echo "找不到 Claude Code session 目錄（$PROJECTS）——裝了 Claude Code 並用過至少一次嗎？" >&2
+      echo "$(t "No Claude Code sessions dir (${PROJECTS}) — is Claude Code installed and used at least once?" \
+               "找不到 Claude Code session 目錄（${PROJECTS}）——裝了 Claude Code 並用過至少一次嗎？")" >&2
     else
-      echo "目前沒有任何 Claude Code session（$PROJECTS）。" >&2
+      echo "$(t "No Claude Code sessions yet (${PROJECTS})." \
+               "目前沒有任何 Claude Code session（${PROJECTS}）。")" >&2
     fi
     exit 1
   fi
 
-  # 純列出（最新在最下方，貼著 prompt；編號 1 = 最新）
+  # List only (newest at the bottom, next to the prompt; number 1 = newest).
   if [ "${1:-}" = "-l" ] || [ "${1:-}" = "--list" ] || [ "${1:-}" = "ls" ] || [ "${1:-}" = "list" ]; then
     printf '%s\n' "$tsv" | awk -F'\t' '{n[NR]=$6} END{for(i=NR;i>=1;i--) printf "%2d) %s\n", i, n[i]}'
     exit 0
   fi
 
-  # 直接指定：純數字=清單編號（1=最新，對應 ccs -l），否則=id 開頭/關鍵字
+  # Direct argument: a pure number = list index (1 = newest, matches `ccs -l`); otherwise id prefix / keyword.
   if [ -n "${1:-}" ]; then
     local match
     if printf '%s' "$1" | grep -qE '^[0-9]+$'; then
-      # 編號：tsv 依 mtime 新→舊排序，第 N 行 = 顯示的 N)（1=最新）
       match="$(printf '%s\n' "$tsv" | sed -n "${1}p")"
       if [ -z "$match" ]; then
-        echo "沒有第 $1 個 session（共 $(printf '%s\n' "$tsv" | grep -c .) 個）" >&2
+        local total; total="$(printf '%s\n' "$tsv" | grep -c .)"
+        echo "$(t "No session #${1} (${total} total)" "沒有第 ${1} 個 session（共 ${total} 個）")" >&2
         exit 1
       fi
     else
       match="$(printf '%s\n' "$tsv" | grep -i -m1 -- "$1" || true)"
       if [ -z "$match" ]; then
-        echo "沒有符合「$1」的 session" >&2
+        echo "$(t "No session matching \"${1}\"" "沒有符合「${1}」的 session")" >&2
         exit 1
       fi
     fi
@@ -155,22 +169,22 @@ main() {
     exit 0
   fi
 
-  # 互動挑選
+  # Interactive pick.
   if command -v fzf >/dev/null 2>&1; then
     local pick
     pick="$(printf '%s\n' "$tsv" \
       | fzf --delimiter='\t' --with-nth=6 --height=90% --reverse \
-            --prompt='resume> ' --header='↑↓ 選 session，Enter 還原，Esc 取消')" || exit 0
+            --prompt='resume> ' --header="$(t "↑↓ choose · Enter resume · Esc cancel" "↑↓ 選 session · Enter 還原 · Esc 取消")")" || exit 0
     [ -z "$pick" ] && exit 0
     resume "$(printf '%s' "$pick" | cut -f1)" "$(printf '%s' "$pick" | cut -f2)"
   else
     printf '%s\n' "$tsv" | awk -F'\t' '{printf "%2d) %s\n", NR, $6}'
-    printf '選擇 #（Enter 取消）：'
+    printf '%s' "$(t "Pick # (Enter to cancel): " "選擇 #（Enter 取消）：")"
     read -r n
     [ -z "$n" ] && exit 0
     local line
     line="$(printf '%s\n' "$tsv" | sed -n "${n}p")"
-    [ -z "$line" ] && { echo "無效選擇" >&2; exit 1; }
+    [ -z "$line" ] && { echo "$(t "invalid choice" "無效選擇")" >&2; exit 1; }
     resume "$(printf '%s' "$line" | cut -f1)" "$(printf '%s' "$line" | cut -f2)"
   fi
 }

@@ -1,8 +1,9 @@
-# cxs.sh — sourced shell function 版的 cxs（Codex CLI session browser）
+# cxs.sh — sourced shell-function wrapper for cxs (Codex CLI session browser)
 #
-# 讓 `cxs` 還原 codex session 後，**當前 shell 留在該 session 的目錄**。
+# Lets `cxs` keep your shell in the resumed session's directory after you exit
+# (persisting cd to the parent shell requires a sourced function).
 #
-# 安裝 / Install: run ./install.sh, or add to your ~/.zshrc / ~/.bashrc:
+# Install: run ./install.sh, or add to your ~/.zshrc / ~/.bashrc:
 #     source /path/to/lazyaicli/cxs.sh
 
 cxs() {
@@ -19,7 +20,10 @@ cxs() {
   if [ -n "$dir" ] && [ -d "$dir" ]; then
     cd "$dir" || return 1
   elif [ -n "$dir" ]; then
-    echo "⚠ 目錄不存在：$dir，留在原地還原" >&2
+    case "${LAZYAICLI_LANG:-${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}}" in
+      zh*) echo "⚠ 目錄不存在：${dir}，留在原地還原" >&2 ;;
+      *)   echo "⚠ directory not found: ${dir} — resuming in place" >&2 ;;
+    esac
   fi
   command codex resume "$id"
 }
