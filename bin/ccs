@@ -35,13 +35,30 @@ for f in glob.glob(os.path.join(root, "*", "*.jsonl")):
     ctitle = aititle = lastp = cwd = None
     try:
         with open(f, "rb") as fh:
-            if size > 262144:          # 大檔只讀尾端 256KB：標題/最後prompt都在尾巴
+            if size > 262144:          # 大檔：頭 16KB（啟動 cwd）+ 尾 256KB（標題/最後prompt）
+                head = fh.read(16384).decode("utf-8", "ignore")
                 fh.seek(-262144, 2)
                 fh.readline()
-            data = fh.read().decode("utf-8", "ignore")
+                tail = fh.read().decode("utf-8", "ignore")
+            else:
+                head = tail = fh.read().decode("utf-8", "ignore")
     except OSError:
         continue
-    for line in data.splitlines():
+    # 啟動目錄 = 第一筆 cwd。claude --resume 用「啟動目錄→專案目錄」對應來找 session，
+    # 不是 session 中途 cd 到的最後 cwd；用錯的話會 No conversation found。
+    for line in head.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+        except Exception:
+            continue
+        if d.get("cwd"):
+            cwd = d.get("cwd")
+            break
+    # 標題 / 最後 prompt 在尾端
+    for line in tail.splitlines():
         line = line.strip()
         if not line:
             continue
@@ -56,7 +73,7 @@ for f in glob.glob(os.path.join(root, "*", "*.jsonl")):
             aititle = d.get("aiTitle") or aititle
         elif t == "last-prompt":
             lastp = d.get("lastPrompt") or lastp
-        if d.get("cwd"):
+        if cwd is None and d.get("cwd"):   # 小檔/頭沒抓到時的退路
             cwd = d.get("cwd")
     if not cwd:                        # 退路：用 project 目錄名還原 cwd
         dn = os.path.basename(os.path.dirname(f))
