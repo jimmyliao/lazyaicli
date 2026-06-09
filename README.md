@@ -56,8 +56,10 @@ $ ccs auth       # resume the session matching "auth"
 **One-liner (recommended):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jimmyliao/agent-cli-sessions/main/install.sh | bash
+curl -fsSL ccs.jimmyliao.net/install | bash
 ```
+
+<sub>Or straight from GitHub: `curl -fsSL https://raw.githubusercontent.com/jimmyliao/agent-cli-sessions/main/install.sh | bash`</sub>
 
 **Manual:**
 
