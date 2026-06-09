@@ -1,4 +1,4 @@
-# lazyaicli (`ccs`)
+# lazyaicli
 
 > Browse and resume your AI coding CLI sessions from the terminal — pick one, jump straight back into it (and back into its directory).
 >
@@ -6,12 +6,13 @@
 
 **繁體中文 | English** · MIT License
 
-Three commands, one engine:
-- **`ccs`** — **Claude Code** sessions (`~/.claude/projects`)
-- **`ags`** — **Antigravity** (`agy`) conversations (`~/.gemini/antigravity-cli/conversations`)
-- **`cxs`** — **Codex** sessions (`~/.codex/sessions`)
+**lazyaicli** is the project; it ships three commands, one per tool, sharing one engine. Each name is just `<tool> Sessions`:
 
-`ccs` = **C**oding **C**LI **S**essions. Same UX (list → pick → `cd` → resume) across tools; adding a tool is one adapter.
+- **`ccs`** — **C**laude **C**ode **S**essions (`~/.claude/projects`)
+- **`ags`** — **A**nti**g**ravity **S**essions · `agy` (`~/.gemini/antigravity-cli/conversations`)
+- **`cxs`** — Code**x** **S**essions (`~/.codex/sessions`)
+
+Same UX everywhere — list → pick → `cd` → resume. Adding a tool is one adapter.
 
 ---
 
