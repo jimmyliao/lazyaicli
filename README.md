@@ -50,6 +50,8 @@ $ ccs auth       # resume the session matching "auth"
 - **fzf** — optional, enables the interactive picker (falls back to a numbered menu)
 - Works on **macOS (zsh)** and **Linux / WSL (bash)**. Windows: use WSL.
 
+> **Tested with** (2026-06): Claude Code **2.1.168**, Antigravity `agy` **1.0.6**, Codex `codex-cli` **0.136.0**. Session-store formats can change between CLI versions — `agy`, for example, moved conversations from `.pb` to `.db` — so newer/older builds may need adapter tweaks.
+
 ---
 
 ## Install / 安裝
