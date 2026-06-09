@@ -26,6 +26,21 @@ def ago(mt):
     if s < 172800: return f"{int(s/3600)}h ago"
     return f"{int(s/86400)}d ago"
 
+# codex 會把 AGENTS.md / environment / instructions 當「user 訊息」注入在開頭，
+# 要跳過這些才能拿到真正的第一個使用者 prompt。
+def is_injected(txt):
+    t = txt.lstrip()
+    if not t or t[0] in "<#":
+        return True
+    low = t[:300].lower()
+    if low.startswith("workspace:") or low.startswith("cwd:"):
+        return True
+    for k in ("instructions for", "<instructions>", "environment_context",
+              "user_instructions", "agents.md", "<user", "<env", "# agents"):
+        if k in low:
+            return True
+    return False
+
 for f in glob.glob(os.path.join(sess, "**", "*.jsonl"), recursive=True):
     try:
         mt = os.path.getmtime(f)
@@ -34,7 +49,7 @@ for f in glob.glob(os.path.join(sess, "**", "*.jsonl"), recursive=True):
     sid = cwd = name = None
     try:
         with open(f, "r", encoding="utf-8", errors="ignore") as fh:
-            chunk = fh.read(65536)   # 頭 64KB：session_meta + 首個 user prompt 都在開頭
+            chunk = fh.read(262144)  # 頭 256KB：略過 AGENTS.md/env 注入後仍能讀到首個真 prompt
     except OSError:
         continue
     for line in chunk.splitlines():
@@ -54,8 +69,7 @@ for f in glob.glob(os.path.join(sess, "**", "*.jsonl"), recursive=True):
             for c in p.get("content", []) or []:
                 if isinstance(c, dict) and c.get("type") == "input_text":
                     txt = (c.get("text") or "").strip()
-                    # 跳過 <environment_context> / <user_instructions> 等系統包裹
-                    if txt and not txt.startswith("<") and name is None:
+                    if name is None and txt and not is_injected(txt):
                         name = " ".join(txt.split())
         if sid and name:
             break
