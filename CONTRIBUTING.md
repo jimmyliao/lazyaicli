@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest! `agent-cli-sessions` is a small, focused tool.
+Thanks for your interest! `lazyaicli` is a small, focused tool.
 
 ## Adding support for another CLI agent
 

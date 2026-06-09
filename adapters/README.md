@@ -1,6 +1,6 @@
 # Adapters
 
-`agent-cli-sessions` separates a shared **engine** (list → pick → `cd` → resume) from per-tool **adapters**. Every terminal AI coding agent stores sessions differently; only three things change per tool.
+`lazyaicli` separates a shared **engine** (list → pick → `cd` → resume) from per-tool **adapters**. Every terminal AI coding agent stores sessions differently; only three things change per tool.
 
 The shared UX never changes — adding a new tool means writing one adapter, not a new tool.
 

@@ -4,7 +4,7 @@
 # （獨立 script 的 cd 只在子行程內；要 cd 持久到父 shell，唯一解是 source 一個 function。）
 #
 # 安裝 / Install: run ./install.sh, or add to your ~/.zshrc / ~/.bashrc:
-#     source /path/to/agent-cli-sessions/ags.sh
+#     source /path/to/lazyaicli/ags.sh
 #
 # 行為：
 #   ags                 互動挑 → cd 目錄 + agy --conversation（退出後留在該目錄）

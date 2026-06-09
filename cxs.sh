@@ -3,7 +3,7 @@
 # 讓 `cxs` 還原 codex session 後，**當前 shell 留在該 session 的目錄**。
 #
 # 安裝 / Install: run ./install.sh, or add to your ~/.zshrc / ~/.bashrc:
-#     source /path/to/agent-cli-sessions/cxs.sh
+#     source /path/to/lazyaicli/cxs.sh
 
 cxs() {
   case "${1:-}" in

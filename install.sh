@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# agent-cli-sessions installer
+# lazyaicli installer
 #   - symlinks bin/ccs into ~/.local/bin
 #   - sources ccs.sh from the right shell rc file (cd-persist after resume)
 #   - checks deps: python3 (required), fzf (recommended)
 set -euo pipefail
 
-REPO_URL="${ACS_REPO_URL:-https://github.com/jimmyliao/agent-cli-sessions.git}"
-INSTALL_DIR="${ACS_DIR:-$HOME/.local/share/agent-cli-sessions}"
+REPO_URL="${ACS_REPO_URL:-https://github.com/jimmyliao/lazyaicli.git}"
+INSTALL_DIR="${ACS_DIR:-$HOME/.local/share/lazyaicli}"
 BIN_DIR="${CCS_BIN_DIR:-$HOME/.local/bin}"
 
-echo "agent-cli-sessions installer"
+echo "lazyaicli installer"
 
 # Two modes:
 #  1) run from inside a clone (git clone … && ./install.sh)  -> use that checkout
@@ -74,7 +74,7 @@ if [ -n "$RC" ]; then
   if grep -qF "$REPO_DIR/ccs.sh" "$RC" 2>/dev/null; then
     echo "✓ ccs.sh already sourced in $RC"
   else
-    printf '\n# agent-cli-sessions — stay in the resumed session dir after exit\nsource "%s/ccs.sh"\n' "$REPO_DIR" >> "$RC"
+    printf '\n# lazyaicli — stay in the resumed session dir after exit\nsource "%s/ccs.sh"\n' "$REPO_DIR" >> "$RC"
     echo "✓ added ccs.sh source line to $RC"
   fi
   for fn in ags cxs; do

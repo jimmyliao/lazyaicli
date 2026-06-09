@@ -5,7 +5,7 @@
 #  要 cd 持久到父 shell，唯一解就是 source 一個 function。）
 #
 # 安裝 / Install: run ./install.sh, or add to your ~/.zshrc / ~/.bashrc:
-#     source /path/to/agent-cli-sessions/ccs.sh
+#     source /path/to/lazyaicli/ccs.sh
 #
 # 行為：
 #   ccs                 互動挑 → cd 專案目錄 + claude --resume（退出後留在該目錄）
