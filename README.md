@@ -80,7 +80,7 @@ Either way, `install.sh` will:
 
 Then restart your shell (or `source` your rc file). Update later with `git -C ~/.local/share/lazyaicli pull` (or just re-run the one-liner).
 
-> The `ccs.sh` shell function is what lets your shell **stay in the resumed session's directory after you exit** — a plain script can't change its parent shell's working directory. Sourcing is optional; `ccs` works as a standalone command without it (minus the cd-persist).
+> The sourced `ccs.sh` / `ags.sh` / `cxs.sh` shell functions are what let your shell **stay in the resumed session's directory after you exit** — a plain script can't change its parent shell's working directory. Sourcing is optional; the commands work standalone without it (minus the cd-persist).
 
 ---
 
@@ -120,6 +120,10 @@ Conversations live in `~/.gemini/antigravity-cli/conversations/<UUID>.db` (SQLit
 
 Sessions live in `~/.codex/sessions/YYYY/MM/DD/rollout-*-<UUID>.jsonl` (plain JSONL). Both id and `cwd` come straight from the `session_meta` line; the name is the first real user prompt. Env: `CODEX_HOME`, `CXS_DRYRUN=1`.
 
+### Language / 語言
+
+All three commands pick their language from your locale automatically — `zh*` → 中文, otherwise English. Force it with `LAZYAICLI_LANG=en` or `LAZYAICLI_LANG=zh`.
+
 ---
 
 ## How it works / 原理
@@ -146,6 +150,7 @@ Today **Claude Code, Antigravity (`agy`), and Codex** all work — `ccs` / `ags`
 - [ ] decode legacy `agy` `.pb` conversations for names (they list as `[legacy]` today)
 - [ ] more backends (OpenCode, Cursor, Copilot CLI, Gemini CLI, …)
 - [ ] auto-detect installed tools + a top-level dispatcher
+- [ ] **v1.0: single Go binary** — no python/bash deps, native Windows, `brew install`
 
 Full detail in [ROADMAP.md](./ROADMAP.md). Contributions welcome — a new tool is **one adapter**: see [adapters/README.md](./adapters/README.md) and [CONTRIBUTING.md](./CONTRIBUTING.md).
 
