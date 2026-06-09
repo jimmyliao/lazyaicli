@@ -6,7 +6,11 @@
 
 **繁體中文 | English** · MIT License
 
-`ccs` = **C**oding **C**LI **S**essions. First backend: **Claude Code**. Designed to grow adapters for other terminal coding agents (Antigravity `agy`, Codex, …).
+Two commands, one engine:
+- **`ccs`** — **Claude Code** sessions (`~/.claude/projects`)
+- **`ags`** — **Antigravity** (`agy`) conversations (`~/.gemini/antigravity-cli/conversations`)
+
+`ccs` = **C**oding **C**LI **S**essions. Same UX (list → pick → `cd` → resume) across tools; adding a tool is one adapter. Codex and others planned.
 
 ---
 
@@ -78,6 +82,18 @@ Then restart your shell (or `source` your rc file).
 Environment:
 - `CLAUDE_PROJECTS` — override the projects dir (default `~/.claude/projects`)
 - `CCS_DRYRUN=1` — print the resume command instead of executing (testing)
+
+### `ags` — Antigravity (`agy`) sessions
+
+Same interface, for Antigravity CLI conversations:
+
+| Command | What it does |
+|---------|--------------|
+| `ags` | interactive picker → `cd` + `agy --conversation <id>` |
+| `ags -l` | list only (newest at bottom) |
+| `ags <N>` / `<keyword>` / `<id>` | resume by number / preview match / id |
+
+Conversations live in `~/.gemini/antigravity-cli/conversations/<UUID>.db` (SQLite, current) or `.pb` (legacy protobuf). Directory comes from `cache/last_conversations.json`. Text previews are shown for `.db` conversations; legacy `.pb` files list by directory + time only. Env: `AGY_HOME`, `AGS_DRYRUN=1`.
 
 ---
 

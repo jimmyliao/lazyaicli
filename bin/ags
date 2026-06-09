@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+# ags — Antigravity CLI (agy) Session browser & resume
+# 列出本機所有 agy 對話（目錄 / 時間 / preview），選一個即還原。
+#
+#   ags           # 互動挑選（有 fzf 用 fzf，否則數字選單）→ 自動 cd cwd && agy --conversation
+#   ags -l        # 只列出，不還原（最新在最下方，編號 1 = 最新）
+#   ags <id|關鍵字> # 直接還原 id 開頭相符、或 preview 含關鍵字的那個
+#   ags <N>       # 用 ccs -l 的清單編號還原（1 = 最新）
+#
+# 對話由 agy 自動持久化於 ~/.gemini/antigravity-cli/conversations/<UUID>.db (sqlite) 或 .pb (protobuf)。
+set -euo pipefail
+
+AGY_HOME="${AGY_HOME:-$HOME/.gemini/antigravity-cli}"
+
+gather() {
+  python3 - "$AGY_HOME" <<'PY'
+import os, sys, json, glob, time, re, sqlite3
+home = sys.argv[1]
+conv = os.path.join(home, "conversations")
+now = time.time()
+
+def ago(mt):
+    s = now - mt
+    if s < 90: return f"{int(s)}s ago"
+    if s < 5400: return f"{int(s/60)}m ago"
+    if s < 172800: return f"{int(s/3600)}h ago"
+    return f"{int(s/86400)}d ago"
+
+# cwd 對照：反轉 cache/last_conversations.json (cwd -> id)  =>  id -> cwd
+id2cwd = {}
+try:
+    with open(os.path.join(home, "cache", "last_conversations.json")) as fh:
+        for cwd, cid in json.load(fh).items():
+            id2cwd[cid] = cwd
+except Exception:
+    pass
+
+# 從 protobuf/sqlite blob 撈第一段「像人話」的可讀文字當 preview（內容是 protobuf，無 schema，靠啟發式）
+TEXT = re.compile(r'[\x20-\x7e一-鿿]{6,}')
+def looks_like_prose(run):
+    run = run.strip()
+    if len(run) < 8 or " " not in run or run[0] in "{[/<":
+        return False
+    # 自然語言：字母/數字/CJK/空白 佔比夠高，濾掉 protobuf 二進位雜訊
+    ok = sum(c.isalnum() or c.isspace() or "一" <= c <= "鿿" for c in run)
+    return ok / len(run) >= 0.75
+def preview_from(blobs):
+    for b in blobs:
+        if not b:
+            continue
+        try:
+            t = b.decode("utf-8", "ignore") if isinstance(b, (bytes, bytearray)) else str(b)
+        except Exception:
+            continue
+        for run in TEXT.findall(t):
+            if looks_like_prose(run):
+                return run.strip()
+    return ""
+
+def preview_db(path):
+    try:
+        con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        blobs = [r[0] for r in con.execute(
+            "SELECT step_payload FROM steps ORDER BY idx LIMIT 16")]
+        con.close()
+        return preview_from(blobs)
+    except Exception:
+        return ""
+
+for f in glob.glob(os.path.join(conv, "*.db")) + glob.glob(os.path.join(conv, "*.pb")):
+    cid = os.path.splitext(os.path.basename(f))[0]
+    try:
+        mt = os.path.getmtime(f)
+    except OSError:
+        continue
+    cwd = id2cwd.get(cid, "")
+    # 只對 .db (sqlite, 新格式) 取 preview；.pb (legacy protobuf) 無 schema 抓不準，略過
+    prev = preview_db(f) if f.endswith(".db") else ""
+    prev = " ".join(prev.split())[:90]
+    short_cwd = (cwd or "(unknown cwd)").replace(os.path.expanduser("~"), "~")
+    fmt = "db" if f.endswith(".db") else "pb"
+    disp = f"{ago(mt):>8}  [{fmt}]  {short_cwd}"
+    if prev:
+        disp += f"  ↳ {prev}"
+    # TSV: id \t cwd \t mtime \t title(空) \t preview \t displayline
+    print("\t".join([cid, cwd, f"{mt:.0f}", "", prev, disp]))
+PY
+}
+
+resume() {
+  local id="$1" cwd="$2"
+  # AGS_EMIT=1：只輸出 cwd<TAB>id，交給 sourced 的 ags() function 在當前 shell cd + resume
+  if [ "${AGS_EMIT:-}" = "1" ]; then
+    printf '%s\t%s\n' "$cwd" "$id"
+    return 0
+  fi
+  echo "→ cd ${cwd:-\$HOME} && agy --conversation $id"
+  if [ "${AGS_DRYRUN:-}" = "1" ]; then return 0; fi
+  if [ -n "$cwd" ] && cd "$cwd" 2>/dev/null; then
+    :
+  else
+    [ -n "$cwd" ] && echo "⚠ 目錄不存在：$cwd，改在 \$HOME 還原" >&2
+    cd "$HOME"
+  fi
+  exec agy --conversation "$id"
+}
+
+main() {
+  local tsv
+  tsv="$(gather | sort -t$'\t' -k3,3nr)"   # 依 mtime 由新到舊
+  if [ -z "$tsv" ]; then
+    echo "找不到任何 agy 對話（$AGY_HOME/conversations）" >&2
+    exit 1
+  fi
+
+  # 純列出（最新在最下方，貼著 prompt；編號 1 = 最新）
+  if [ "${1:-}" = "-l" ] || [ "${1:-}" = "--list" ] || [ "${1:-}" = "ls" ] || [ "${1:-}" = "list" ]; then
+    printf '%s\n' "$tsv" | awk -F'\t' '{n[NR]=$6} END{for(i=NR;i>=1;i--) printf "%2d) %s\n", i, n[i]}'
+    exit 0
+  fi
+
+  # 直接指定：純數字=清單編號（1=最新），否則=id 開頭/關鍵字
+  if [ -n "${1:-}" ]; then
+    local match
+    if printf '%s' "$1" | grep -qE '^[0-9]+$'; then
+      match="$(printf '%s\n' "$tsv" | sed -n "${1}p")"
+      if [ -z "$match" ]; then
+        echo "沒有第 $1 個對話（共 $(printf '%s\n' "$tsv" | grep -c .) 個）" >&2
+        exit 1
+      fi
+    else
+      match="$(printf '%s\n' "$tsv" | grep -i -m1 -- "$1" || true)"
+      if [ -z "$match" ]; then
+        echo "沒有符合「$1」的對話" >&2
+        exit 1
+      fi
+    fi
+    resume "$(printf '%s' "$match" | cut -f1)" "$(printf '%s' "$match" | cut -f2)"
+    exit 0
+  fi
+
+  # 互動挑選
+  if command -v fzf >/dev/null 2>&1; then
+    local pick
+    pick="$(printf '%s\n' "$tsv" \
+      | fzf --delimiter='\t' --with-nth=6 --height=90% --reverse \
+            --prompt='resume> ' --header='↑↓ 選 agy 對話，Enter 還原，Esc 取消')" || exit 0
+    [ -z "$pick" ] && exit 0
+    resume "$(printf '%s' "$pick" | cut -f1)" "$(printf '%s' "$pick" | cut -f2)"
+  else
+    printf '%s\n' "$tsv" | awk -F'\t' '{printf "%2d) %s\n", NR, $6}'
+    printf '選擇 #（Enter 取消）：'
+    read -r n
+    [ -z "$n" ] && exit 0
+    local line
+    line="$(printf '%s\n' "$tsv" | sed -n "${n}p")"
+    [ -z "$line" ] && { echo "無效選擇" >&2; exit 1; }
+    resume "$(printf '%s' "$line" | cut -f1)" "$(printf '%s' "$line" | cut -f2)"
+  fi
+}
+
+main "$@"

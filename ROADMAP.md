@@ -12,11 +12,13 @@
 - [ ] formalize the adapter contract (see [adapters/README.md](./adapters/README.md))
 - [ ] `bin/ccs` becomes the thin `claude` entrypoint
 
-## v0.3 — Antigravity (`agy`)  ← next concrete target
-- [ ] reverse-engineer session storage under `~/.antigravity/` (VS Code workspace storage; likely sqlite `state.vscdb` / per-workspace json)
-- [ ] map to the common session record (id / title / last_prompt / cwd / mtime)
-- [ ] resume via the `agy` CLI
-- [ ] ship as command `ags` (Antigravity Coding Sessions)
+## v0.3 — Antigravity (`agy`)  ✅ shipped
+- [x] reverse-engineered storage: `~/.gemini/antigravity-cli/conversations/<UUID>.db` (SQLite) / `.pb` (legacy protobuf)
+- [x] map to the common record: id = filename UUID, cwd = invert `cache/last_conversations.json`, mtime = file mtime
+- [x] resume via `agy --conversation <id>` (verified loads context)
+- [x] shipped as command `ags` + `ags.sh` (cd-persist)
+- [ ] better title/last_prompt: decode protobuf in `steps.step_payload` (today only `.db` shows a heuristic text preview; `.pb` lists by dir+time)
+- [ ] recover cwd for conversations not in `last_conversations.json`
 
 ## v0.4 — Codex & beyond
 - [ ] Codex adapter (`~/.codex/sessions/` + sqlite) → command `cxs`

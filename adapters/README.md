@@ -28,12 +28,19 @@ Common session record (what the engine consumes):
 
 ## Status
 
-- ✅ **claude** — currently implemented **inline in `../bin/ccs`**. When the second
-  adapter lands, the shared engine (gather/fzf/list/cd) will be extracted here and
-  `bin/ccs` becomes a thin `claude` entrypoint. The record shape above is already
-  the seam, so this is an additive refactor, not a rewrite.
-- ⏳ **agy (Antigravity)** — planned. Sessions under `~/.antigravity/` (VS Code
-  workspace storage; storage format to be confirmed). Resume via the `agy` CLI.
+- ✅ **claude** — implemented in [`../bin/ccs`](../bin/ccs).
+  `~/.claude/projects/*/*.jsonl`; resume `claude --resume <id>` from the session's
+  launch dir (first cwd).
+- ✅ **agy (Antigravity)** — implemented in [`../bin/ags`](../bin/ags).
+  `~/.gemini/antigravity-cli/conversations/<UUID>.db` (SQLite) / `.pb` (legacy);
+  id = filename UUID; cwd = invert `cache/last_conversations.json`; resume
+  `agy --conversation <id>`. Title/last_prompt: heuristic text from the `.db`
+  `steps.step_payload` blob (protobuf, no schema) — `.pb` previews not yet decoded.
 - ⏳ **codex** — planned. `~/.codex/sessions/` + sqlite.
+
+> **Refactor note (v0.2):** `bin/ccs` and `bin/ags` currently duplicate the shared
+> engine (gather → fzf → list/number/keyword → cd → resume). With two real adapters
+> now in place, the next step is to extract that engine here and make `bin/ccs` /
+> `bin/ags` thin entrypoints. The record shape above is the seam.
 
 See [../ROADMAP.md](../ROADMAP.md).
