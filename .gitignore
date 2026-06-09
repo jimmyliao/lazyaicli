@@ -1,0 +1,12 @@
+# OS / editor
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+
+# never commit captured session data or local scratch
+*.jsonl
+*.log
+/tmp/
+scratch/

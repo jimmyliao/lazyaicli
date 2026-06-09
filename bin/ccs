@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+# ccs — Claude Code Session browser & resume
+# 列出本機所有 Claude Code session（含標題 / 上次 prompt / 目錄），選一個即還原。
+#
+#   ccs           # 互動挑選（有 fzf 用 fzf，否則數字選單）→ 自動 cd cwd && claude --resume
+#   ccs -l        # 只列出，不還原（檢視用）
+#   ccs <id|關鍵字> # 直接還原 id 開頭相符、或標題/最後prompt含關鍵字的那個
+#
+# session 由 Claude Code 自動持續寫入，無需手動 save。
+set -euo pipefail
+
+PROJECTS="${CLAUDE_PROJECTS:-$HOME/.claude/projects}"
+
+gather() {
+  python3 - "$PROJECTS" <<'PY'
+import os, sys, json, glob, time
+root = sys.argv[1]
+now = time.time()
+
+def ago(mt):
+    s = now - mt
+    if s < 90: return f"{int(s)}s ago"
+    if s < 5400: return f"{int(s/60)}m ago"
+    if s < 172800: return f"{int(s/3600)}h ago"
+    return f"{int(s/86400)}d ago"
+
+rows = []
+for f in glob.glob(os.path.join(root, "*", "*.jsonl")):
+    sid = os.path.basename(f)[:-6]
+    try:
+        mt = os.path.getmtime(f)
+        size = os.path.getsize(f)
+    except OSError:
+        continue
+    ctitle = aititle = lastp = cwd = None
+    try:
+        with open(f, "rb") as fh:
+            if size > 262144:          # 大檔只讀尾端 256KB：標題/最後prompt都在尾巴
+                fh.seek(-262144, 2)
+                fh.readline()
+            data = fh.read().decode("utf-8", "ignore")
+    except OSError:
+        continue
+    for line in data.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+        except Exception:
+            continue
+        t = d.get("type")
+        if t == "custom-title":
+            ctitle = d.get("customTitle") or ctitle
+        elif t == "ai-title":
+            aititle = d.get("aiTitle") or aititle
+        elif t == "last-prompt":
+            lastp = d.get("lastPrompt") or lastp
+        if d.get("cwd"):
+            cwd = d.get("cwd")
+    if not cwd:                        # 退路：用 project 目錄名還原 cwd
+        dn = os.path.basename(os.path.dirname(f))
+        cwd = "/" + dn.strip("-").replace("-", "/")
+    title = ctitle or aititle or "(untitled)"
+    lastp = " ".join((lastp or "").split())
+    short_cwd = cwd.replace(os.path.expanduser("~"), "~")
+    disp = f"{ago(mt):>8}  [{title}]  {short_cwd}"
+    if lastp:
+        disp += f"  ↳ {lastp[:90]}"
+    # TSV: sid \t cwd \t mtime \t title \t lastprompt \t displayline
+    print("\t".join([sid, cwd, f"{mt:.0f}", title, lastp, disp]))
+rows  # keep linters quiet
+PY
+}
+
+resume() {
+  local id="$1" cwd="$2"
+  # CCS_EMIT=1：只輸出 cwd<TAB>id，交給 sourced 的 ccs() function 在當前 shell cd + resume
+  # （這樣退出 claude 後 shell 會留在專案目錄，子行程改不了父 shell 的 cwd）
+  if [ "${CCS_EMIT:-}" = "1" ]; then
+    printf '%s\t%s\n' "$cwd" "$id"
+    return 0
+  fi
+  echo "→ cd $cwd && claude --resume $id"
+  if [ "${CCS_DRYRUN:-}" = "1" ]; then return 0; fi
+  if ! cd "$cwd" 2>/dev/null; then
+    echo "⚠ 目錄不存在：$cwd，改在 \$HOME 還原" >&2
+    cd "$HOME"
+  fi
+  exec claude --resume "$id"
+}
+
+main() {
+  local tsv
+  tsv="$(gather | sort -t$'\t' -k3,3nr)"   # 依 mtime 由新到舊
+  if [ -z "$tsv" ]; then
+    echo "找不到任何 session（$PROJECTS）" >&2
+    exit 1
+  fi
+
+  # 純列出（最新在最下方，貼著 prompt；編號 1 = 最新）
+  if [ "${1:-}" = "-l" ] || [ "${1:-}" = "--list" ] || [ "${1:-}" = "ls" ] || [ "${1:-}" = "list" ]; then
+    printf '%s\n' "$tsv" | awk -F'\t' '{n[NR]=$6} END{for(i=NR;i>=1;i--) printf "%2d) %s\n", i, n[i]}'
+    exit 0
+  fi
+
+  # 直接指定 id/關鍵字
+  if [ -n "${1:-}" ]; then
+    local match
+    match="$(printf '%s\n' "$tsv" | grep -i -m1 -- "$1" || true)"
+    if [ -z "$match" ]; then
+      echo "沒有符合「$1」的 session" >&2
+      exit 1
+    fi
+    resume "$(printf '%s' "$match" | cut -f1)" "$(printf '%s' "$match" | cut -f2)"
+    exit 0
+  fi
+
+  # 互動挑選
+  if command -v fzf >/dev/null 2>&1; then
+    local pick
+    pick="$(printf '%s\n' "$tsv" \
+      | fzf --delimiter='\t' --with-nth=6 --height=90% --reverse \
+            --prompt='resume> ' --header='↑↓ 選 session，Enter 還原，Esc 取消')" || exit 0
+    [ -z "$pick" ] && exit 0
+    resume "$(printf '%s' "$pick" | cut -f1)" "$(printf '%s' "$pick" | cut -f2)"
+  else
+    printf '%s\n' "$tsv" | awk -F'\t' '{printf "%2d) %s\n", NR, $6}'
+    printf '選擇 #（Enter 取消）：'
+    read -r n
+    [ -z "$n" ] && exit 0
+    local line
+    line="$(printf '%s\n' "$tsv" | sed -n "${n}p")"
+    [ -z "$line" ] && { echo "無效選擇" >&2; exit 1; }
+    resume "$(printf '%s' "$line" | cut -f1)" "$(printf '%s' "$line" | cut -f2)"
+  fi
+}
+
+main "$@"
