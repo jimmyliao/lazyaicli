@@ -44,9 +44,10 @@ else
   echo "    install: brew install fzf   |   apt install fzf"
 fi
 
-# --- optional backends present? --------------------------------------------
-command -v agy   >/dev/null 2>&1 && echo "✓ agy found — ags (Antigravity sessions) ready"   || echo "ℹ agy not found — ags installed, works once Antigravity CLI is present."
-command -v codex >/dev/null 2>&1 && echo "✓ codex found — cxs (Codex sessions) ready"        || echo "ℹ codex not found — cxs installed, works once Codex CLI is present."
+# --- which backends are present? (all 3 commands install either way) -------
+command -v claude >/dev/null 2>&1 && echo "✓ claude found — ccs (Claude Code sessions) ready" || echo "ℹ claude not found — ccs installed, works once Claude Code is present."
+command -v agy    >/dev/null 2>&1 && echo "✓ agy found — ags (Antigravity sessions) ready"     || echo "ℹ agy not found — ags installed, works once Antigravity CLI is present."
+command -v codex  >/dev/null 2>&1 && echo "✓ codex found — cxs (Codex sessions) ready"          || echo "ℹ codex not found — cxs installed, works once Codex CLI is present."
 
 # --- symlink engines onto PATH ---------------------------------------------
 mkdir -p "$BIN_DIR"

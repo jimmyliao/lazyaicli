@@ -92,13 +92,23 @@ PY
 
 resume() {
   local id="$1" cwd="$2"
+  # DRYRUN：只印指令、不需要 agy（純預覽）
+  if [ "${AGS_DRYRUN:-}" = "1" ]; then
+    echo "→ cd ${cwd:-\$HOME} && agy --conversation $id"
+    return 0
+  fi
+  # 還原需要 agy 在 PATH（列出不需要）
+  if ! command -v agy >/dev/null 2>&1; then
+    echo "✗ 找不到 'agy' 指令——未安裝 Antigravity CLI 或不在 PATH。安裝後即可還原。" >&2
+    echo "  https://antigravity.google/download" >&2
+    exit 1
+  fi
   # AGS_EMIT=1：只輸出 cwd<TAB>id，交給 sourced 的 ags() function 在當前 shell cd + resume
   if [ "${AGS_EMIT:-}" = "1" ]; then
     printf '%s\t%s\n' "$cwd" "$id"
     return 0
   fi
   echo "→ cd ${cwd:-\$HOME} && agy --conversation $id"
-  if [ "${AGS_DRYRUN:-}" = "1" ]; then return 0; fi
   if [ -n "$cwd" ] && cd "$cwd" 2>/dev/null; then
     :
   else
@@ -112,7 +122,11 @@ main() {
   local tsv
   tsv="$(gather | sort -t$'\t' -k3,3nr)"   # 依 mtime 由新到舊
   if [ -z "$tsv" ]; then
-    echo "找不到任何 agy 對話（$AGY_HOME/conversations）" >&2
+    if [ ! -d "$AGY_HOME/conversations" ]; then
+      echo "找不到 agy 對話目錄（$AGY_HOME/conversations）——裝了 Antigravity CLI 並用過至少一次嗎？" >&2
+    else
+      echo "目前沒有任何 agy 對話（$AGY_HOME/conversations）。" >&2
+    fi
     exit 1
   fi
 
