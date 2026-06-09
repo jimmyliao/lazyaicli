@@ -53,18 +53,27 @@ $ ccs auth       # resume the session matching "auth"
 
 ## Install / 安裝
 
+**One-liner (recommended):**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jimmyliao/agent-cli-sessions/main/install.sh | bash
+```
+
+**Manual:**
+
 ```bash
 git clone https://github.com/jimmyliao/agent-cli-sessions.git
 cd agent-cli-sessions
 ./install.sh
 ```
 
-`install.sh` will:
-1. symlink `bin/ccs` into `~/.local/bin`
-2. detect your shell and add `source .../ccs.sh` to the right rc file (`~/.zshrc` / `~/.bashrc` / `~/.bash_profile`)
-3. check for `python3` (required) and `fzf` (recommended)
+Either way, `install.sh` will:
+1. (one-liner mode) clone into `~/.local/share/agent-cli-sessions`
+2. symlink `ccs`, `ags`, `cxs` into `~/.local/bin`
+3. detect your shell and source `ccs.sh` / `ags.sh` / `cxs.sh` from the right rc file (`~/.zshrc` / `~/.bashrc` / `~/.bash_profile`)
+4. check `python3` (required) and `fzf` (recommended); note which of `claude` / `agy` / `codex` are present
 
-Then restart your shell (or `source` your rc file).
+Then restart your shell (or `source` your rc file). Update later with `git -C ~/.local/share/agent-cli-sessions pull` (or just re-run the one-liner).
 
 > The `ccs.sh` shell function is what lets your shell **stay in the resumed session's directory after you exit** — a plain script can't change its parent shell's working directory. Sourcing is optional; `ccs` works as a standalone command without it (minus the cd-persist).
 

@@ -5,11 +5,31 @@
 #   - checks deps: python3 (required), fzf (recommended)
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+REPO_URL="${ACS_REPO_URL:-https://github.com/jimmyliao/agent-cli-sessions.git}"
+INSTALL_DIR="${ACS_DIR:-$HOME/.local/share/agent-cli-sessions}"
 BIN_DIR="${CCS_BIN_DIR:-$HOME/.local/bin}"
 
 echo "agent-cli-sessions installer"
-echo "  repo: $REPO_DIR"
+
+# Two modes:
+#  1) run from inside a clone (git clone … && ./install.sh)  -> use that checkout
+#  2) bootstrap (curl -fsSL …/install.sh | bash)             -> clone/update INSTALL_DIR
+SELF="${BASH_SOURCE[0]:-}"
+if [ -n "$SELF" ] && [ -f "$(dirname "$SELF")/bin/ccs" ]; then
+  REPO_DIR="$(cd "$(dirname "$SELF")" && pwd)"
+  echo "  using checkout: $REPO_DIR"
+else
+  command -v git >/dev/null 2>&1 || { echo "✗ git is required to bootstrap. Aborting." >&2; exit 1; }
+  if [ -d "$INSTALL_DIR/.git" ]; then
+    echo "  updating $INSTALL_DIR"
+    git -C "$INSTALL_DIR" pull --ff-only --quiet || echo "  (pull skipped)"
+  else
+    echo "  cloning $REPO_URL -> $INSTALL_DIR"
+    mkdir -p "$(dirname "$INSTALL_DIR")"
+    git clone --depth 1 --quiet "$REPO_URL" "$INSTALL_DIR"
+  fi
+  REPO_DIR="$INSTALL_DIR"
+fi
 
 # --- deps -------------------------------------------------------------------
 if ! command -v python3 >/dev/null 2>&1; then
