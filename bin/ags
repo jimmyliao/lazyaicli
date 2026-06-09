@@ -74,16 +74,19 @@ for f in glob.glob(os.path.join(conv, "*.db")) + glob.glob(os.path.join(conv, "*
     except OSError:
         continue
     cwd = id2cwd.get(cid, "")
-    # 只對 .db (sqlite, 新格式) 取 preview；.pb (legacy protobuf) 無 schema 抓不準，略過
-    prev = preview_db(f) if f.endswith(".db") else ""
-    prev = " ".join(prev.split())[:90]
-    short_cwd = (cwd or "(unknown cwd)").replace(os.path.expanduser("~"), "~")
-    fmt = "db" if f.endswith(".db") else "pb"
-    disp = f"{ago(mt):>8}  [{fmt}]  {short_cwd}"
+    # agy 沒存標題 → 用第一個 prompt 當名稱（放中括號，對齊 ccs 的 [title]）。
+    # .db (sqlite) 撈得到；.pb (legacy) 內容加密無法取名 → 標 [legacy]。
+    prev = " ".join((preview_db(f) if f.endswith(".db") else "").split())
     if prev:
-        disp += f"  ↳ {prev}"
-    # TSV: id \t cwd \t mtime \t title(空) \t preview \t displayline
-    print("\t".join([cid, cwd, f"{mt:.0f}", "", prev, disp]))
+        name = prev[:70]
+    elif f.endswith(".pb"):
+        name = "legacy"
+    else:
+        name = "untitled"
+    short_cwd = (cwd or "(unknown cwd)").replace(os.path.expanduser("~"), "~")
+    disp = f"{ago(mt):>8}  [{name}]  {short_cwd}"
+    # TSV: id \t cwd \t mtime \t name \t preview \t displayline
+    print("\t".join([cid, cwd, f"{mt:.0f}", name, prev[:90], disp]))
 PY
 }
 
