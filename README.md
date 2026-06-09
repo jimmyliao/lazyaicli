@@ -71,6 +71,7 @@ Then restart your shell (or `source` your rc file).
 |---------|--------------|
 | `ccs` | interactive picker (fzf) → `cd` into session dir + resume |
 | `ccs -l` / `ccs ls` | list only (newest at bottom), no resume |
+| `ccs <N>` | resume by list number from `ccs -l` (`1` = newest) |
 | `ccs <keyword>` | resume the newest session whose title / last prompt matches |
 | `ccs <id-prefix>` | resume by session id prefix |
 

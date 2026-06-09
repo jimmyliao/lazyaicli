@@ -104,13 +104,22 @@ main() {
     exit 0
   fi
 
-  # 直接指定 id/關鍵字
+  # 直接指定：純數字=清單編號（1=最新，對應 ccs -l），否則=id 開頭/關鍵字
   if [ -n "${1:-}" ]; then
     local match
-    match="$(printf '%s\n' "$tsv" | grep -i -m1 -- "$1" || true)"
-    if [ -z "$match" ]; then
-      echo "沒有符合「$1」的 session" >&2
-      exit 1
+    if printf '%s' "$1" | grep -qE '^[0-9]+$'; then
+      # 編號：tsv 依 mtime 新→舊排序，第 N 行 = 顯示的 N)（1=最新）
+      match="$(printf '%s\n' "$tsv" | sed -n "${1}p")"
+      if [ -z "$match" ]; then
+        echo "沒有第 $1 個 session（共 $(printf '%s\n' "$tsv" | grep -c .) 個）" >&2
+        exit 1
+      fi
+    else
+      match="$(printf '%s\n' "$tsv" | grep -i -m1 -- "$1" || true)"
+      if [ -z "$match" ]; then
+        echo "沒有符合「$1」的 session" >&2
+        exit 1
+      fi
     fi
     resume "$(printf '%s' "$match" | cut -f1)" "$(printf '%s' "$match" | cut -f2)"
     exit 0

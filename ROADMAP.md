@@ -3,7 +3,7 @@
 ## v0.1 — Claude Code (current)
 - [x] list sessions (title / last prompt / cwd / age), newest at bottom
 - [x] interactive `fzf` picker, numbered-menu fallback
-- [x] resume by keyword / id prefix
+- [x] resume by list number (`ccs <N>`, `1` = newest) / keyword / id prefix
 - [x] `cd` into the session's directory on resume (`ccs.sh` shell function = stays there after exit)
 - [x] `install.sh` with shell/rc detection (zsh / bash on macOS & Linux/WSL)
 
