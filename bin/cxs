@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+# cxs — Codex CLI Session browser & resume
+# 列出本機所有 codex session（名稱 / 目錄 / 時間），選一個即還原。
+#
+#   cxs           # 互動挑選（fzf，否則數字選單）→ 自動 cd cwd && codex resume <id>
+#   cxs -l        # 只列出（最新在最下方，編號 1 = 最新）
+#   cxs <id|關鍵字> # 直接還原 id 開頭相符、或名稱含關鍵字的那個
+#   cxs <N>       # 用清單編號還原（1 = 最新）
+#
+# session 由 codex 自動寫於 ~/.codex/sessions/YYYY/MM/DD/rollout-*-<UUID>.jsonl（明文 jsonl）。
+set -euo pipefail
+
+CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+
+gather() {
+  python3 - "$CODEX_HOME" <<'PY'
+import os, sys, json, glob, time
+home = sys.argv[1]
+sess = os.path.join(home, "sessions")
+now = time.time()
+
+def ago(mt):
+    s = now - mt
+    if s < 90: return f"{int(s)}s ago"
+    if s < 5400: return f"{int(s/60)}m ago"
+    if s < 172800: return f"{int(s/3600)}h ago"
+    return f"{int(s/86400)}d ago"
+
+for f in glob.glob(os.path.join(sess, "**", "*.jsonl"), recursive=True):
+    try:
+        mt = os.path.getmtime(f)
+    except OSError:
+        continue
+    sid = cwd = name = None
+    try:
+        with open(f, "r", encoding="utf-8", errors="ignore") as fh:
+            chunk = fh.read(65536)   # 頭 64KB：session_meta + 首個 user prompt 都在開頭
+    except OSError:
+        continue
+    for line in chunk.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+        except Exception:
+            continue
+        t = d.get("type")
+        p = d.get("payload", {}) if isinstance(d.get("payload"), dict) else {}
+        if t == "session_meta":
+            sid = p.get("id") or sid
+            cwd = p.get("cwd") or cwd
+        elif t == "response_item" and p.get("type") == "message" and p.get("role") == "user":
+            for c in p.get("content", []) or []:
+                if isinstance(c, dict) and c.get("type") == "input_text":
+                    txt = (c.get("text") or "").strip()
+                    # 跳過 <environment_context> / <user_instructions> 等系統包裹
+                    if txt and not txt.startswith("<") and name is None:
+                        name = " ".join(txt.split())
+        if sid and name:
+            break
+    if not sid:  # 退路：檔名尾端 UUID
+        base = os.path.basename(f)
+        sid = base.rsplit("-", 5)[-5:] and "-".join(base[:-6].split("-")[-5:]) or base[:-6]
+    name = (name or "(untitled)")[:70]
+    short_cwd = (cwd or "(unknown cwd)").replace(os.path.expanduser("~"), "~")
+    disp = f"{ago(mt):>8}  [{name}]  {short_cwd}"
+    # TSV: id \t cwd \t mtime \t name \t (preview空) \t displayline
+    print("\t".join([sid, cwd or "", f"{mt:.0f}", name, "", disp]))
+PY
+}
+
+resume() {
+  local id="$1" cwd="$2"
+  if [ "${CXS_EMIT:-}" = "1" ]; then
+    printf '%s\t%s\n' "$cwd" "$id"
+    return 0
+  fi
+  echo "→ cd ${cwd:-\$HOME} && codex resume $id"
+  if [ "${CXS_DRYRUN:-}" = "1" ]; then return 0; fi
+  if [ -n "$cwd" ] && cd "$cwd" 2>/dev/null; then
+    :
+  else
+    [ -n "$cwd" ] && echo "⚠ 目錄不存在：$cwd，改在 \$HOME 還原" >&2
+    cd "$HOME"
+  fi
+  exec codex resume "$id"
+}
+
+main() {
+  local tsv
+  tsv="$(gather | sort -t$'\t' -k3,3nr)"
+  if [ -z "$tsv" ]; then
+    echo "找不到任何 codex session（$CODEX_HOME/sessions）" >&2
+    exit 1
+  fi
+
+  if [ "${1:-}" = "-l" ] || [ "${1:-}" = "--list" ] || [ "${1:-}" = "ls" ] || [ "${1:-}" = "list" ]; then
+    printf '%s\n' "$tsv" | awk -F'\t' '{n[NR]=$6} END{for(i=NR;i>=1;i--) printf "%2d) %s\n", i, n[i]}'
+    exit 0
+  fi
+
+  if [ -n "${1:-}" ]; then
+    local match
+    if printf '%s' "$1" | grep -qE '^[0-9]+$'; then
+      match="$(printf '%s\n' "$tsv" | sed -n "${1}p")"
+      if [ -z "$match" ]; then
+        echo "沒有第 $1 個 session（共 $(printf '%s\n' "$tsv" | grep -c .) 個）" >&2
+        exit 1
+      fi
+    else
+      match="$(printf '%s\n' "$tsv" | grep -i -m1 -- "$1" || true)"
+      if [ -z "$match" ]; then
+        echo "沒有符合「$1」的 session" >&2
+        exit 1
+      fi
+    fi
+    resume "$(printf '%s' "$match" | cut -f1)" "$(printf '%s' "$match" | cut -f2)"
+    exit 0
+  fi
+
+  if command -v fzf >/dev/null 2>&1; then
+    local pick
+    pick="$(printf '%s\n' "$tsv" \
+      | fzf --delimiter='\t' --with-nth=6 --height=90% --reverse \
+            --prompt='resume> ' --header='↑↓ 選 codex session，Enter 還原，Esc 取消')" || exit 0
+    [ -z "$pick" ] && exit 0
+    resume "$(printf '%s' "$pick" | cut -f1)" "$(printf '%s' "$pick" | cut -f2)"
+  else
+    printf '%s\n' "$tsv" | awk -F'\t' '{printf "%2d) %s\n", NR, $6}'
+    printf '選擇 #（Enter 取消）：'
+    read -r n
+    [ -z "$n" ] && exit 0
+    local line
+    line="$(printf '%s\n' "$tsv" | sed -n "${n}p")"
+    [ -z "$line" ] && { echo "無效選擇" >&2; exit 1; }
+    resume "$(printf '%s' "$line" | cut -f1)" "$(printf '%s' "$line" | cut -f2)"
+  fi
+}
+
+main "$@"

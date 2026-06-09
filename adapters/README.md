@@ -36,11 +36,13 @@ Common session record (what the engine consumes):
   id = filename UUID; cwd = invert `cache/last_conversations.json`; resume
   `agy --conversation <id>`. Title/last_prompt: heuristic text from the `.db`
   `steps.step_payload` blob (protobuf, no schema) — `.pb` previews not yet decoded.
-- ⏳ **codex** — planned. `~/.codex/sessions/` + sqlite.
+- ✅ **codex** — implemented in [`../bin/cxs`](../bin/cxs).
+  `~/.codex/sessions/**/rollout-*-<UUID>.jsonl` (plain JSONL); id + cwd from the
+  `session_meta` line; name = first real user prompt; resume `codex resume <id>`.
 
-> **Refactor note (v0.2):** `bin/ccs` and `bin/ags` currently duplicate the shared
-> engine (gather → fzf → list/number/keyword → cd → resume). With two real adapters
-> now in place, the next step is to extract that engine here and make `bin/ccs` /
-> `bin/ags` thin entrypoints. The record shape above is the seam.
+> **Refactor note (v0.5):** `bin/ccs`, `bin/ags`, `bin/cxs` currently duplicate the
+> shared engine (gather → fzf → list/number/keyword → cd → resume). With three real
+> adapters in place, the next step is to extract that engine here and make each
+> `bin/*` a thin gather()+resume() entrypoint. The record shape above is the seam.
 
 See [../ROADMAP.md](../ROADMAP.md).

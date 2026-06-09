@@ -6,11 +6,12 @@
 
 **繁體中文 | English** · MIT License
 
-Two commands, one engine:
+Three commands, one engine:
 - **`ccs`** — **Claude Code** sessions (`~/.claude/projects`)
 - **`ags`** — **Antigravity** (`agy`) conversations (`~/.gemini/antigravity-cli/conversations`)
+- **`cxs`** — **Codex** sessions (`~/.codex/sessions`)
 
-`ccs` = **C**oding **C**LI **S**essions. Same UX (list → pick → `cd` → resume) across tools; adding a tool is one adapter. Codex and others planned.
+`ccs` = **C**oding **C**LI **S**essions. Same UX (list → pick → `cd` → resume) across tools; adding a tool is one adapter.
 
 ---
 
@@ -93,7 +94,17 @@ Same interface, for Antigravity CLI conversations:
 | `ags -l` | list only (newest at bottom) |
 | `ags <N>` / `<keyword>` / `<id>` | resume by number / preview match / id |
 
-Conversations live in `~/.gemini/antigravity-cli/conversations/<UUID>.db` (SQLite, current) or `.pb` (legacy protobuf). Directory comes from `cache/last_conversations.json`. Text previews are shown for `.db` conversations; legacy `.pb` files list by directory + time only. Env: `AGY_HOME`, `AGS_DRYRUN=1`.
+Conversations live in `~/.gemini/antigravity-cli/conversations/<UUID>.db` (SQLite, current) or `.pb` (legacy protobuf). Directory comes from `cache/last_conversations.json`. Names are the first prompt for `.db` conversations; legacy `.pb` files show `[legacy]` + directory + time. Env: `AGY_HOME`, `AGS_DRYRUN=1`.
+
+### `cxs` — Codex sessions
+
+| Command | What it does |
+|---------|--------------|
+| `cxs` | interactive picker → `cd` + `codex resume <id>` |
+| `cxs -l` | list only (newest at bottom) |
+| `cxs <N>` / `<keyword>` / `<id>` | resume by number / name match / id |
+
+Sessions live in `~/.codex/sessions/YYYY/MM/DD/rollout-*-<UUID>.jsonl` (plain JSONL). Both id and `cwd` come straight from the `session_meta` line; the name is the first real user prompt. Env: `CODEX_HOME`, `CXS_DRYRUN=1`.
 
 ---
 

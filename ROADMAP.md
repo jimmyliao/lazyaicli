@@ -20,9 +20,15 @@
 - [ ] better title/last_prompt: decode protobuf in `steps.step_payload` (today only `.db` shows a heuristic text preview; `.pb` lists by dir+time)
 - [ ] recover cwd for conversations not in `last_conversations.json`
 
-## v0.4 — Codex & beyond
-- [ ] Codex adapter (`~/.codex/sessions/` + sqlite) → command `cxs`
-- [ ] auto-detect installed tools; `ccs` can dispatch across all of them
+## v0.4 — Codex  ✅ shipped
+- [x] Codex adapter: `~/.codex/sessions/**/rollout-*-<UUID>.jsonl` (plain JSONL)
+- [x] id + cwd straight from `session_meta`; name = first real user prompt
+- [x] resume via `codex resume <id>`; shipped as command `cxs` + `cxs.sh`
+
+## v0.5 — Extract shared engine (refactor)
+- [ ] `bin/ccs` / `bin/ags` / `bin/cxs` duplicate the engine — extract to `lib/`
+- [ ] each tool becomes gather() + resume() only (see [adapters/README.md](./adapters/README.md))
+- [ ] auto-detect installed tools; a top-level dispatcher across all of them
 
 ## Nice-to-have
 - [ ] i18n of user-facing strings (currently mixed zh-TW / English)
