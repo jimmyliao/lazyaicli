@@ -44,7 +44,7 @@ $ ccs auth       # resume the session matching "auth"
 
 ## Requirements / 需求
 
-- **Claude Code** (sessions live in `~/.claude/projects/*/*.jsonl`)
+- **At least one supported CLI** — Claude Code, Antigravity (`agy`), and/or Codex. Each is optional; you only need the ones you actually use. Listing only reads their session files; resuming needs that CLI on `PATH`.
 - **python3** (parsing) — required
 - **bash** — the engine runs under bash
 - **fzf** — optional, enables the interactive picker (falls back to a numbered menu)
@@ -122,24 +122,30 @@ Sessions live in `~/.codex/sessions/YYYY/MM/DD/rollout-*-<UUID>.jsonl` (plain JS
 
 ## How it works / 原理
 
-1. Scans `~/.claude/projects/*/*.jsonl`. For speed, only the **tail** of large files is read (titles / last prompt / cwd live near the end).
-2. Extracts per session: `custom-title` → `ai-title` → `(untitled)`, last user prompt, `cwd`, modified time.
-3. Sorts by recency and renders one line each.
-4. On pick: `cd` to the session's `cwd`, then `claude --resume <id>`.
+One engine, three thin adapters. The engine: scan a tool's session store → one row per session (`id` / name / `cwd` / mtime) → sort newest-last → pick (`fzf`, or a number/keyword) → `cd` into the session's directory → run that tool's resume command. **Listing is read-only** over files the CLI already writes, so there's no save step; only *resume* needs the CLI on `PATH`.
 
-Sessions are written continuously by Claude Code itself, so there's **no save step** — `ccs` is read-only over data that's already on disk.
+What differs per tool:
+
+| Tool | Session store | Name from | `cd` target | Resume |
+|------|---------------|-----------|-------------|--------|
+| `ccs` | `~/.claude/projects/*/*.jsonl` | `custom-title` → `ai-title` → last prompt | **launch dir** = first `cwd` in the file | `claude --resume <id>` |
+| `ags` | `~/.gemini/antigravity-cli/conversations/<UUID>.db` (sqlite) / `.pb` (legacy) | first prompt from `steps` (`.db` only; `.pb` → `[legacy]`) | invert `cache/last_conversations.json` | `agy --conversation <id>` |
+| `cxs` | `~/.codex/sessions/**/rollout-*-<UUID>.jsonl` | first real user prompt | `cwd` from the `session_meta` line | `codex resume <id>` |
+
+> **Launch dir** matters for `ccs`: `claude --resume` resolves a session by *current dir → project dir*, so a session that `cd`-ed into a subdir mid-way would fail to resume from that subdir. `ccs` reads the file **head** for the original launch `cwd` (and the **tail** for title / last prompt) and `cd`s there.
 
 ---
 
 ## Roadmap / 藍圖
 
-`ccs` ships with the Claude Code backend today. The UX (list → pick → cd → resume) is identical across tools; only *where sessions live* and *how to resume* differ. Planned adapters:
+Today **Claude Code, Antigravity (`agy`), and Codex** all work — `ccs` / `ags` / `cxs`. Next up:
 
-- [ ] **Antigravity (`agy`)** — sessions under `~/.antigravity/` (VS Code workspace storage)
-- [ ] **Codex** — `~/.codex/sessions/` + sqlite
-- [ ] pluggable adapter interface + per-tool commands (`ags`, `cxs`)
+- [ ] extract the shared engine — `bin/ccs` / `bin/ags` / `bin/cxs` still duplicate it (each should be just gather + resume)
+- [ ] decode legacy `agy` `.pb` conversations for names (they list as `[legacy]` today)
+- [ ] more backends (OpenCode, Cursor, Copilot CLI, Gemini CLI, …)
+- [ ] auto-detect installed tools + a top-level dispatcher
 
-See [ROADMAP.md](./ROADMAP.md). Contributions welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md).
+Full detail in [ROADMAP.md](./ROADMAP.md). Contributions welcome — a new tool is **one adapter**: see [adapters/README.md](./adapters/README.md) and [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ---
 
