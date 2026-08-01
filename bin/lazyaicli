@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# lazyaicli — auto-detect and dispatch to ccs / ags / cxs.
+set -euo pipefail
+
+SCRIPT="${BASH_SOURCE[0]}"
+if [ -L "$SCRIPT" ]; then
+  TARGET="$(readlink "$SCRIPT")"
+  case "$TARGET" in /*) SCRIPT="$TARGET" ;; *) SCRIPT="$(dirname "$SCRIPT")/$TARGET" ;; esac
+fi
+ROOT="$(cd "$(dirname "$SCRIPT")/.." && pwd)"
+LAZY_COMMAND=lazyaicli
+source "$ROOT/lib/engine.sh"
+
+usage() {
+  cat <<'EOF'
+Usage: lazyaicli [ccs|ags|cxs] [ADAPTER_ARGS...]
+
+Auto-detect an installed AI coding CLI, then open its session browser.
+  lazyaicli             choose an installed backend (auto-select if only one)
+  lazyaicli cxs -l      list Codex sessions
+  lazyaicli ccs auth    resume a matching Claude Code session
+  lazyaicli ags 1       resume the newest Antigravity conversation
+
+Environment: LAZYAICLI_TOOLS="ccs ags cxs" overrides backend detection.
+EOF
+}
+
+detect_tools() {
+  if [ -n "${LAZYAICLI_TOOLS:-}" ]; then
+    printf '%s\n' "$LAZYAICLI_TOOLS" | tr ',' ' ' | tr ' ' '\n' | awk 'NF'
+    return
+  fi
+  command -v claude >/dev/null 2>&1 && printf 'ccs\n'
+  command -v agy >/dev/null 2>&1 && printf 'ags\n'
+  command -v codex >/dev/null 2>&1 && printf 'cxs\n'
+}
+
+label() {
+  case "$1" in
+    ccs) printf 'ccs\tClaude Code\n' ;;
+    ags) printf 'ags\tAntigravity (agy)\n' ;;
+    cxs) printf 'cxs\tCodex\n' ;;
+    *) return 1 ;;
+  esac
+}
+
+choose_tool() {
+  local tools="$1" count
+  count="$(printf '%s\n' "$tools" | awk 'NF{n++} END{print n+0}')"
+  if [ "$count" -eq 0 ]; then
+    echo "$(t "No supported CLI found on PATH (claude, agy, or codex)." \
+             "PATH 上找不到支援的 CLI（claude、agy 或 codex）。")" >&2
+    return 1
+  fi
+  if [ "$count" -eq 1 ]; then
+    printf '%s\n' "$tools"
+    return
+  fi
+
+  local choices="" tool
+  while IFS= read -r tool; do
+    [ -n "$tool" ] || continue
+    choices="${choices}$(label "$tool")"
+  done <<< "$tools"
+
+  if command -v fzf >/dev/null 2>&1; then
+    printf '%s' "$choices" | fzf --delimiter='\t' --with-nth=1,2 --height=60% --reverse \
+      --prompt='tool> ' --header="$(t "Choose a session backend" "選擇 session backend")" | cut -f1
+  else
+    printf '%s' "$choices" | awk -F'\t' '{printf "%d) %s — %s\n", NR, $1, $2}' >&2
+    printf '%s' "$(t "Pick tool # (Enter to cancel): " "選擇工具 #（Enter 取消）：")" >&2
+    local n
+    read -r n
+    [ -n "$n" ] || return 1
+    printf '%s' "$choices" | sed -n "${n}p" | cut -f1
+  fi
+}
+
+main() {
+  case "${1:-}" in
+    -h|--help) usage; return 0 ;;
+    --version) version; return 0 ;;
+  esac
+
+  local tool=""
+  case "${1:-}" in
+    ccs|ags|cxs) tool="$1"; shift ;;
+  esac
+  if [ -z "$tool" ]; then
+    tool="$(choose_tool "$(detect_tools)")" || return $?
+  fi
+  case "$tool" in ccs|ags|cxs) ;; *) echo "Unsupported adapter: $tool" >&2; return 2 ;; esac
+
+  if [ "${LAZYAICLI_EMIT_TOOL:-}" = 1 ]; then
+    printf '%s\n' "$tool"
+    return 0
+  fi
+  exec "$ROOT/bin/$tool" "$@"
+}
+
+main "$@"

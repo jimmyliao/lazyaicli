@@ -6,7 +6,9 @@
 
 **繁體中文 | English** · MIT License
 
-**lazyaicli** is the project; it ships three commands, one per tool, sharing one engine. Each name is just `<tool> Sessions`:
+**lazyaicli** ships one auto-detecting dispatcher plus three direct adapter commands, all sharing one engine:
+
+- **`lazyaicli`** — detect installed backends, auto-select one or ask which to open
 
 - **`ccs`** — **C**laude **C**ode **S**essions (`~/.claude/projects`)
 - **`ags`** — **A**nti**g**ravity **S**essions · `agy` (`~/.gemini/antigravity-cli/conversations`)
@@ -74,19 +76,31 @@ cd lazyaicli
 
 Either way, `install.sh` will:
 1. (one-liner mode) clone into `~/.local/share/lazyaicli`
-2. symlink `ccs`, `ags`, `cxs` into `~/.local/bin`
-3. add the command directory to `PATH`, then source `ccs.sh` / `ags.sh` / `cxs.sh` from the right rc file (`~/.zshrc` / `~/.bashrc` / `~/.bash_profile`)
+2. symlink `lazyaicli`, `ccs`, `ags`, `cxs` into `~/.local/bin`
+3. add the command directory to `PATH`, then source their cd-persist wrappers from the right rc file (`~/.zshrc` / `~/.bashrc` / `~/.bash_profile`)
 4. check `python3` or `uv` (one required) and `fzf` (recommended); note which of `claude` / `agy` / `codex` are present
 
 Then restart your shell (or `source` your rc file). Update later with `git -C ~/.local/share/lazyaicli pull` (or just re-run the one-liner).
 
-For automation or non-interactive shells, invoke `~/.local/bin/ccs`, `~/.local/bin/ags`, or `~/.local/bin/cxs` directly if the shell has not reloaded its rc file yet.
+For automation or non-interactive shells, invoke `~/.local/bin/lazyaicli` (or a direct adapter path) if the shell has not reloaded its rc file yet.
 
 > The sourced `ccs.sh` / `ags.sh` / `cxs.sh` shell functions are what let your shell **stay in the resumed session's directory after you exit** — a plain script can't change its parent shell's working directory. Sourcing is optional; the commands work standalone without it (minus the cd-persist).
 
 ---
 
 ## Usage / 用法
+
+### `lazyaicli` — auto dispatcher
+
+| Command | What it does |
+|---------|--------------|
+| `lazyaicli` | auto-select the only installed backend, or ask when several are installed |
+| `lazyaicli cxs -l` | explicitly run any adapter with its normal arguments |
+| `lazyaicli ccs auth` | explicitly resume a matching Claude Code session |
+
+Detection checks `claude`, `agy`, and `codex` on `PATH`. Override it for automation with `LAZYAICLI_TOOLS="ccs ags cxs"`.
+
+### `ccs` — Claude Code sessions
 
 | Command | What it does |
 |---------|--------------|
@@ -151,7 +165,7 @@ Today **Claude Code, Antigravity (`agy`), and Codex** all work — `ccs` / `ags`
 - [x] extract the shared shell engine — selection, list, i18n, Python fallback, help/version live in `lib/engine.sh`
 - [ ] decode legacy `agy` `.pb` conversations for names (they list as `[legacy]` today)
 - [ ] more backends (OpenCode, Cursor, Copilot CLI, Gemini CLI, …)
-- [ ] auto-detect installed tools + a top-level dispatcher
+- [x] auto-detect installed tools + the `lazyaicli` top-level dispatcher
 - [ ] **v1.0: single Go binary** — no python/bash deps, native Windows, `brew install`
 
 Full detail in [ROADMAP.md](./ROADMAP.md). Contributions welcome — a new tool is **one adapter**: see [adapters/README.md](./adapters/README.md) and [CONTRIBUTING.md](./CONTRIBUTING.md).

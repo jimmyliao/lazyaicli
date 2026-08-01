@@ -28,7 +28,7 @@
 ## v0.5 — Extract shared engine (refactor)
 - [x] `bin/ccs` / `bin/ags` / `bin/cxs` share selection/runtime logic from `lib/engine.sh`
 - [x] each adapter provides gather(), resume(), usage(), empty-state, and display labels
-- [ ] auto-detect installed tools; a top-level dispatcher across all of them
+- [x] auto-detect installed tools; `lazyaicli` top-level dispatcher with explicit adapter subcommands
 
 ## Nice-to-have
 - [x] i18n of shared user-facing strings (locale auto-detect plus `LAZYAICLI_LANG` override)

@@ -13,6 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check shell syntax
-        run: bash -n lib/engine.sh bin/ccs bin/ags bin/cxs ccs.sh ags.sh cxs.sh install.sh tests/smoke.sh
+        run: bash -n lib/engine.sh bin/ccs bin/ags bin/cxs bin/lazyaicli ccs.sh ags.sh cxs.sh lazyaicli.sh install.sh tests/smoke.sh
       - name: Run adapter and installer smoke tests
         run: tests/smoke.sh

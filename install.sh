@@ -60,6 +60,8 @@ ln -sf "$REPO_DIR/bin/ags" "$BIN_DIR/ags"
 echo "✓ linked $BIN_DIR/ags -> $REPO_DIR/bin/ags   (Antigravity agy sessions)"
 ln -sf "$REPO_DIR/bin/cxs" "$BIN_DIR/cxs"
 echo "✓ linked $BIN_DIR/cxs -> $REPO_DIR/bin/cxs   (Codex sessions)"
+ln -sf "$REPO_DIR/bin/lazyaicli" "$BIN_DIR/lazyaicli"
+echo "✓ linked $BIN_DIR/lazyaicli -> $REPO_DIR/bin/lazyaicli   (auto dispatcher)"
 
 # --- source the shell function (cd-persist) --------------------------------
 detect_rc() {
@@ -94,6 +96,12 @@ if [ -n "$RC" ]; then
       echo "✓ added $fn.sh source line to $RC"
     fi
   done
+  if grep -qF "$REPO_DIR/lazyaicli.sh" "$RC" 2>/dev/null; then
+    echo "✓ lazyaicli.sh already sourced in $RC"
+  else
+    printf 'source "%s/lazyaicli.sh"\n' "$REPO_DIR" >> "$RC"
+    echo "✓ added lazyaicli.sh source line to $RC"
+  fi
   echo ""
   echo "Done. Restart your shell or:  source $RC"
 else
@@ -101,4 +109,5 @@ else
   echo "    source \"$REPO_DIR/ccs.sh\""
   echo "    source \"$REPO_DIR/ags.sh\""
   echo "    source \"$REPO_DIR/cxs.sh\""
+  echo "    source \"$REPO_DIR/lazyaicli.sh\""
 fi

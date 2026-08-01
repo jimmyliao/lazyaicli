@@ -3,6 +3,6 @@
 #
 # This file IS the bootstrap — served by GitHub Pages at ccs.jimmyliao.net/install.
 # It fetches and runs lazyaicli's install.sh, which (in curl|bash mode) clones the
-# repo to ~/.local/share/lazyaicli and sets up the ccs / ags / cxs commands.
+# repo to ~/.local/share/lazyaicli and sets up lazyaicli / ccs / ags / cxs.
 set -euo pipefail
 exec bash <(curl -fsSL "https://raw.githubusercontent.com/jimmyliao/lazyaicli/main/install.sh")

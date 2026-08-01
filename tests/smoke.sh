@@ -29,7 +29,7 @@ db.commit()
 PY
 
 export LAZYAICLI_LANG=en
-for cmd in ccs ags cxs; do
+for cmd in ccs ags cxs lazyaicli; do
   "$ROOT/bin/$cmd" --help | grep -F "Usage: $cmd"
   "$ROOT/bin/$cmd" --version | grep -F "($cmd)"
 done
@@ -57,6 +57,12 @@ SH
 chmod +x "$TMP/fake-bin/fzf"
 CXS_DRYRUN=1 CODEX_HOME="$TMP/codex" PATH="$TMP/fake-bin:$PATH" "$ROOT/bin/cxs" \
   | grep -F 'codex resume codex-123'
+
+# Dispatcher: explicit adapter, one auto-detected tool, multiple-tool fzf, and no backend.
+CODEX_HOME="$TMP/codex" LAZYAICLI_TOOLS=cxs "$ROOT/bin/lazyaicli" -l | grep -F '[Fix the Codex picker]'
+CODEX_HOME="$TMP/codex" LAZYAICLI_TOOLS='cxs ccs' PATH="$TMP/fake-bin:$PATH" "$ROOT/bin/lazyaicli" -l \
+  | grep -F '[Fix the Codex picker]'
+LAZYAICLI_TOOLS=none "$ROOT/bin/lazyaicli" >/dev/null 2>&1 && exit 1 || true
 export LAZYAICLI_CALLS="$TMP/backend-calls"
 PATH="$ROOT/bin:$TMP/fake-bin:$PATH"
 export PATH
@@ -64,6 +70,8 @@ export CODEX_HOME="$TMP/codex" CLAUDE_PROJECTS="$TMP/claude" AGY_HOME="$TMP/agy"
 ( source "$ROOT/cxs.sh"; cxs 1 )
 ( source "$ROOT/ccs.sh"; ccs 1 )
 ( source "$ROOT/ags.sh"; ags 1 )
+( source "$ROOT/ccs.sh"; source "$ROOT/ags.sh"; source "$ROOT/cxs.sh"; source "$ROOT/lazyaicli.sh"; lazyaicli cxs 1 )
+( source "$ROOT/ccs.sh"; source "$ROOT/ags.sh"; source "$ROOT/cxs.sh"; source "$ROOT/lazyaicli.sh"; LAZYAICLI_TOOLS=cxs lazyaicli 1 )
 grep -F "$TMP/work"$'\t''resume codex-123' "$LAZYAICLI_CALLS"
 grep -F "$TMP/work"$'\t''--resume claude-123' "$LAZYAICLI_CALLS"
 grep -F "$TMP/work"$'\t''--conversation agy-123' "$LAZYAICLI_CALLS"
@@ -74,5 +82,7 @@ grep -F 'export PATH=' "$TMP/home/.bashrc"
 test -L "$TMP/home/.local/bin/ccs"
 test -L "$TMP/home/.local/bin/ags"
 test -L "$TMP/home/.local/bin/cxs"
+test -L "$TMP/home/.local/bin/lazyaicli"
+grep -F "$ROOT/lazyaicli.sh" "$TMP/home/.bashrc"
 
 echo 'smoke tests passed'
