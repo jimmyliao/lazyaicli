@@ -60,9 +60,13 @@ CXS_DRYRUN=1 CODEX_HOME="$TMP/codex" PATH="$TMP/fake-bin:$PATH" "$ROOT/bin/cxs" 
 
 # Dispatcher: explicit adapter, one auto-detected tool, multiple-tool fzf, and no backend.
 CODEX_HOME="$TMP/codex" LAZYAICLI_TOOLS=cxs "$ROOT/bin/lazyaicli" -l | grep -F '[Fix the Codex picker]'
+CODEX_HOME="$TMP/codex" LAZYAICLI_TOOLS='cxs,cxs' "$ROOT/bin/lazyaicli" -l | grep -F '[Fix the Codex picker]'
 CODEX_HOME="$TMP/codex" LAZYAICLI_TOOLS='cxs ccs' PATH="$TMP/fake-bin:$PATH" "$ROOT/bin/lazyaicli" -l \
   | grep -F '[Fix the Codex picker]'
-LAZYAICLI_TOOLS=none "$ROOT/bin/lazyaicli" >/dev/null 2>&1 && exit 1 || true
+if LAZYAICLI_TOOLS=none "$ROOT/bin/lazyaicli" >"$TMP/invalid-tool.out" 2>&1; then exit 1; fi
+grep -F 'Unsupported LAZYAICLI_TOOLS adapter: none' "$TMP/invalid-tool.out"
+if env -u LAZYAICLI_TOOLS PATH=/usr/bin:/bin "$ROOT/bin/lazyaicli" >"$TMP/no-tool.out" 2>&1; then exit 1; fi
+grep -F 'No supported CLI found on PATH' "$TMP/no-tool.out"
 export LAZYAICLI_CALLS="$TMP/backend-calls"
 PATH="$ROOT/bin:$TMP/fake-bin:$PATH"
 export PATH
@@ -76,7 +80,7 @@ grep -F "$TMP/work"$'\t''resume codex-123' "$LAZYAICLI_CALLS"
 grep -F "$TMP/work"$'\t''--resume claude-123' "$LAZYAICLI_CALLS"
 grep -F "$TMP/work"$'\t''--conversation agy-123' "$LAZYAICLI_CALLS"
 
-HOME="$TMP/home" SHELL=/bin/bash ACS_DIR="$ROOT" CCS_BIN_DIR="$TMP/home/.local/bin" \
+HOME="$TMP/home" SHELL=/bin/bash LAZYAICLI_DIR="$ROOT" LAZYAICLI_BIN_DIR="$TMP/home/.local/bin" \
   bash "$ROOT/install.sh" >/dev/null
 grep -F 'export PATH=' "$TMP/home/.bashrc"
 test -L "$TMP/home/.local/bin/ccs"
@@ -84,5 +88,10 @@ test -L "$TMP/home/.local/bin/ags"
 test -L "$TMP/home/.local/bin/cxs"
 test -L "$TMP/home/.local/bin/lazyaicli"
 grep -F "$ROOT/lazyaicli.sh" "$TMP/home/.bashrc"
+
+# Historical installer variable remains accepted.
+HOME="$TMP/legacy-home" SHELL=/bin/unknown CCS_BIN_DIR="$TMP/legacy-bin" \
+  bash "$ROOT/install.sh" >/dev/null
+test -L "$TMP/legacy-bin/lazyaicli"
 
 echo 'smoke tests passed'

@@ -27,12 +27,26 @@ EOF
 
 detect_tools() {
   if [ -n "${LAZYAICLI_TOOLS:-}" ]; then
-    printf '%s\n' "$LAZYAICLI_TOOLS" | tr ',' ' ' | tr ' ' '\n' | awk 'NF'
+    local tool seen=" "
+    while IFS= read -r tool; do
+      [ -n "$tool" ] || continue
+      case "$tool" in
+        ccs|ags|cxs) ;;
+        *) echo "$(t "Unsupported LAZYAICLI_TOOLS adapter: $tool" \
+                     "LAZYAICLI_TOOLS 含有不支援的 adapter：$tool")" >&2; return 2 ;;
+      esac
+      case "$seen" in *" $tool "*) continue ;; esac
+      printf '%s\n' "$tool"
+      seen="$seen$tool "
+    done <<EOF
+$(printf '%s\n' "$LAZYAICLI_TOOLS" | tr ',' ' ' | tr ' ' '\n' | awk 'NF')
+EOF
     return
   fi
   command -v claude >/dev/null 2>&1 && printf 'ccs\n'
   command -v agy >/dev/null 2>&1 && printf 'ags\n'
   command -v codex >/dev/null 2>&1 && printf 'cxs\n'
+  return 0
 }
 
 label() {
@@ -87,7 +101,9 @@ main() {
     ccs|ags|cxs) tool="$1"; shift ;;
   esac
   if [ -z "$tool" ]; then
-    tool="$(choose_tool "$(detect_tools)")" || return $?
+    local detected
+    detected="$(detect_tools)" || return $?
+    tool="$(choose_tool "$detected")" || return $?
   fi
   case "$tool" in ccs|ags|cxs) ;; *) echo "Unsupported adapter: $tool" >&2; return 2 ;; esac
 

@@ -5,9 +5,11 @@
 #   - checks deps: python3 or uv (required), fzf (recommended)
 set -euo pipefail
 
-REPO_URL="${ACS_REPO_URL:-https://github.com/jimmyliao/lazyaicli.git}"
-INSTALL_DIR="${ACS_DIR:-$HOME/.local/share/lazyaicli}"
-BIN_DIR="${CCS_BIN_DIR:-$HOME/.local/bin}"
+# LAZYAICLI_* are the public names. Historical ACS_*/CCS_* overrides remain
+# supported so existing automation keeps working.
+REPO_URL="${LAZYAICLI_REPO_URL:-${ACS_REPO_URL:-https://github.com/jimmyliao/lazyaicli.git}}"
+INSTALL_DIR="${LAZYAICLI_DIR:-${ACS_DIR:-$HOME/.local/share/lazyaicli}}"
+BIN_DIR="${LAZYAICLI_BIN_DIR:-${CCS_BIN_DIR:-$HOME/.local/bin}}"
 
 echo "lazyaicli installer"
 

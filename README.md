@@ -84,6 +84,8 @@ Then restart your shell (or `source` your rc file). Update later with `git -C ~/
 
 For automation or non-interactive shells, invoke `~/.local/bin/lazyaicli` (or a direct adapter path) if the shell has not reloaded its rc file yet.
 
+Installer overrides: `LAZYAICLI_DIR`, `LAZYAICLI_BIN_DIR`, and `LAZYAICLI_REPO_URL`. The former `ACS_DIR`, `CCS_BIN_DIR`, and `ACS_REPO_URL` names remain accepted for compatibility.
+
 > The sourced `ccs.sh` / `ags.sh` / `cxs.sh` shell functions are what let your shell **stay in the resumed session's directory after you exit** — a plain script can't change its parent shell's working directory. Sourcing is optional; the commands work standalone without it (minus the cd-persist).
 
 ---
