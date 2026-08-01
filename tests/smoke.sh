@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/work" "$TMP/codex/sessions/2026/08/01" "$TMP/claude/project" \
-  "$TMP/agy/conversations" "$TMP/agy/cache"
+  "$TMP/agy/conversations" "$TMP/agy/cache" "$TMP/fake-bin"
 
 cat > "$TMP/codex/sessions/2026/08/01/rollout-test.jsonl" <<JSON
 {"type":"session_meta","payload":{"id":"codex-123","cwd":"$TMP/work"}}
@@ -40,6 +40,25 @@ CLAUDE_PROJECTS="$TMP/claude" "$ROOT/bin/ccs" -l | grep -F '[Claude picker]'
 CCS_DRYRUN=1 CLAUDE_PROJECTS="$TMP/claude" "$ROOT/bin/ccs" 1 | grep -F 'claude --resume claude-123'
 AGY_HOME="$TMP/agy" "$ROOT/bin/ags" -l | grep -F '[Improve the Antigravity picker workflow]'
 AGS_DRYRUN=1 AGY_HOME="$TMP/agy" "$ROOT/bin/ags" 1 | grep -F 'agy --conversation agy-123'
+
+# Sourced wrappers must change the parent shell's cwd before invoking the real CLI.
+for backend in codex claude agy; do
+  cat > "$TMP/fake-bin/$backend" <<'SH'
+#!/usr/bin/env bash
+printf '%s\t%s\n' "$PWD" "$*" >> "$LAZYAICLI_CALLS"
+SH
+  chmod +x "$TMP/fake-bin/$backend"
+done
+export LAZYAICLI_CALLS="$TMP/backend-calls"
+PATH="$ROOT/bin:$TMP/fake-bin:$PATH"
+export PATH
+export CODEX_HOME="$TMP/codex" CLAUDE_PROJECTS="$TMP/claude" AGY_HOME="$TMP/agy"
+( source "$ROOT/cxs.sh"; cxs 1 )
+( source "$ROOT/ccs.sh"; ccs 1 )
+( source "$ROOT/ags.sh"; ags 1 )
+grep -F "$TMP/work"$'\t''resume codex-123' "$LAZYAICLI_CALLS"
+grep -F "$TMP/work"$'\t''--resume claude-123' "$LAZYAICLI_CALLS"
+grep -F "$TMP/work"$'\t''--conversation agy-123' "$LAZYAICLI_CALLS"
 
 HOME="$TMP/home" SHELL=/bin/bash ACS_DIR="$ROOT" CCS_BIN_DIR="$TMP/home/.local/bin" \
   bash "$ROOT/install.sh" >/dev/null
