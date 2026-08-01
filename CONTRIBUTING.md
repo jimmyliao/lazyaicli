@@ -17,7 +17,7 @@ The shared UX (list → pick → `cd` → resume) is reused as-is.
 
 - Keep the engine dependency-light: `bash` + (`python3` or `uv`) + optional `fzf`.
 - Run `tests/smoke.sh` before submitting changes; it exercises all three adapters with isolated fixtures.
-- Pull requests run the same smoke suite automatically in GitHub Actions.
+- Pull requests run the same smoke suite on Ubuntu and macOS, plus ShellCheck on Ubuntu, in GitHub Actions.
 - Read-only over session data — never mutate a tool's session files.
 - Test with `CCS_DRYRUN=1` (prints the resume command instead of executing).
 - Cross-shell: behavior must hold on **zsh** (macOS) and **bash** (Linux/WSL).

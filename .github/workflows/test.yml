@@ -9,12 +9,18 @@ permissions:
 
 jobs:
   smoke:
-    runs-on: ubuntu-latest
+    name: smoke (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - name: Check shell syntax
         run: bash -n lib/engine.sh bin/ccs bin/ags bin/cxs bin/lazyaicli ccs.sh ags.sh cxs.sh lazyaicli.sh install.sh tests/smoke.sh
       - name: Run ShellCheck
+        if: runner.os == 'Linux'
         run: shellcheck --severity=warning -x bin/ccs bin/ags bin/cxs bin/lazyaicli lib/engine.sh install.sh ccs.sh ags.sh cxs.sh lazyaicli.sh tests/smoke.sh
       - name: Run adapter and installer smoke tests
         run: tests/smoke.sh
