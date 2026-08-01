@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # lazyaicli.sh — sourced wrapper that preserves adapter cd behavior.
 
 lazyaicli() {

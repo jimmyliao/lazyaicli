@@ -81,6 +81,7 @@ if [ -n "$RC" ]; then
   elif grep -qF "export PATH=\"$BIN_DIR:\$PATH\"" "$RC" 2>/dev/null; then
     echo "✓ $BIN_DIR PATH already configured in $RC"
   else
+    # shellcheck disable=SC2016 # $PATH must expand when the rc file is sourced.
     printf '\n# lazyaicli commands\nexport PATH="%s:$PATH"\n' "$BIN_DIR" >> "$RC"
     echo "✓ added $BIN_DIR to PATH in $RC"
   fi

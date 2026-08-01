@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Shared lazyaicli shell engine.
 # Adapters provide: gather(), resume(), usage(), no_sessions(), LAZY_COMMAND,
 # LAZY_ITEM_EN/ZH, and LAZY_FZF_HEADER_EN/ZH.

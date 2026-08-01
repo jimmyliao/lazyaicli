@@ -105,6 +105,7 @@ test -L "$TMP/legacy-bin/lazyaicli"
 # Recommended curl|bash path: process-substitution forces bootstrap mode while a
 # local file:// remote keeps the test deterministic and offline.
 for run in 1 2; do
+  : "$run"
   HOME="$TMP/bootstrap-home" SHELL=/bin/unknown \
     LAZYAICLI_REPO_URL="file://$ROOT" \
     LAZYAICLI_DIR="$TMP/bootstrap-share/lazyaicli" \

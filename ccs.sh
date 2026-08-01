@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # ccs.sh — sourced shell-function wrapper for ccs
 #
 # Lets `ccs` keep your shell in the resumed session's project directory after

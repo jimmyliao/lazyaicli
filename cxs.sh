@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # cxs.sh — sourced shell-function wrapper for cxs (Codex CLI session browser)
 #
 # Lets `cxs` keep your shell in the resumed session's directory after you exit

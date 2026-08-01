@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # ags.sh — sourced shell-function wrapper for ags (Antigravity CLI session browser)
 #
 # Lets `ags` keep your shell in the resumed conversation's directory after you
