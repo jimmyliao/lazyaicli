@@ -86,7 +86,13 @@ choose_tool() {
     local n
     read -r n
     [ -n "$n" ] || return 1
-    printf '%s' "$choices" | sed -n "${n}p" | cut -f1
+    local picked
+    picked="$(row_at "$choices" "$n" || true)"
+    if [ -z "$picked" ]; then
+      echo "$(t "invalid tool choice" "無效的工具選擇")" >&2
+      return 1
+    fi
+    printf '%s\n' "$picked" | cut -f1
   fi
 }
 

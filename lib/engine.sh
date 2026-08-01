@@ -25,6 +25,14 @@ version() {
   printf 'lazyaicli %s (%s)\n' "$rev" "$LAZY_COMMAND"
 }
 
+row_at() {
+  local rows="$1" requested="$2" number
+  case "$requested" in ''|*[!0-9]*) return 1 ;; esac
+  number="$(printf '%s' "$requested" | sed 's/^0*//')"
+  [ -n "$number" ] || return 1
+  printf '%s\n' "$rows" | awk -v n="$number" 'NR == n {print; exit}'
+}
+
 engine_main() {
   case "${1:-}" in
     -h|--help) usage; return 0 ;;
@@ -46,7 +54,7 @@ engine_main() {
   if [ -n "${1:-}" ]; then
     local match
     if printf '%s' "$1" | grep -qE '^[0-9]+$'; then
-      match="$(printf '%s\n' "$tsv" | sed -n "${1}p")"
+      match="$(row_at "$tsv" "$1" || true)"
       if [ -z "$match" ]; then
         local total; total="$(printf '%s\n' "$tsv" | grep -c .)"
         echo "$(t "No ${LAZY_ITEM_EN} #${1} (${total} total)" "沒有第 ${1} 個${LAZY_ITEM_ZH}（共 ${total} 個）")" >&2
@@ -76,7 +84,7 @@ engine_main() {
     local n line
     read -r n
     [ -z "$n" ] && return 0
-    line="$(printf '%s\n' "$tsv" | sed -n "${n}p")"
+    line="$(row_at "$tsv" "$n" || true)"
     [ -z "$line" ] && { echo "$(t "invalid choice" "無效選擇")" >&2; return 1; }
     resume "$(printf '%s' "$line" | cut -f1)" "$(printf '%s' "$line" | cut -f2)"
   fi

@@ -37,6 +37,11 @@ CODEX_HOME="$TMP/codex" "$ROOT/bin/cxs" -l | grep -F '[Fix the Codex picker]'
 CXS_DRYRUN=1 CODEX_HOME="$TMP/codex" "$ROOT/bin/cxs" 1 | grep -F 'codex resume codex-123'
 CXS_DRYRUN=1 CODEX_HOME="$TMP/codex" "$ROOT/bin/cxs" '[' | grep -F 'codex resume codex-123'
 printf '1\n' | CXS_DRYRUN=1 CODEX_HOME="$TMP/codex" "$ROOT/bin/cxs" | grep -F 'codex resume codex-123'
+for invalid in 0 nope 999999999999999999999999999; do
+  if CXS_DRYRUN=1 CODEX_HOME="$TMP/codex" "$ROOT/bin/cxs" "$invalid" >"$TMP/invalid-row.out" 2>&1; then exit 1; fi
+done
+if printf 'nope\n' | CXS_DRYRUN=1 CODEX_HOME="$TMP/codex" "$ROOT/bin/cxs" >"$TMP/invalid-menu.out" 2>&1; then exit 1; fi
+grep -F 'invalid choice' "$TMP/invalid-menu.out"
 CLAUDE_PROJECTS="$TMP/claude" "$ROOT/bin/ccs" -l | grep -F '[Claude picker]'
 CCS_DRYRUN=1 CLAUDE_PROJECTS="$TMP/claude" "$ROOT/bin/ccs" 1 | grep -F 'claude --resume claude-123'
 AGY_HOME="$TMP/agy" "$ROOT/bin/ags" -l | grep -F '[Improve the Antigravity picker workflow]'
@@ -63,6 +68,9 @@ CODEX_HOME="$TMP/codex" LAZYAICLI_TOOLS=cxs "$ROOT/bin/lazyaicli" -l | grep -F '
 CODEX_HOME="$TMP/codex" LAZYAICLI_TOOLS='cxs,cxs' "$ROOT/bin/lazyaicli" -l | grep -F '[Fix the Codex picker]'
 CODEX_HOME="$TMP/codex" LAZYAICLI_TOOLS='cxs ccs' PATH="$TMP/fake-bin:$PATH" "$ROOT/bin/lazyaicli" -l \
   | grep -F '[Fix the Codex picker]'
+if printf 'nope\n' | LAZYAICLI_EMIT_TOOL=1 LAZYAICLI_TOOLS='cxs ccs' \
+  PATH=/usr/bin:/bin "$ROOT/bin/lazyaicli" >"$TMP/invalid-tool-menu.out" 2>&1; then exit 1; fi
+grep -F 'invalid tool choice' "$TMP/invalid-tool-menu.out"
 if LAZYAICLI_TOOLS=none "$ROOT/bin/lazyaicli" >"$TMP/invalid-tool.out" 2>&1; then exit 1; fi
 grep -F 'Unsupported LAZYAICLI_TOOLS adapter: none' "$TMP/invalid-tool.out"
 if env -u LAZYAICLI_TOOLS PATH=/usr/bin:/bin "$ROOT/bin/lazyaicli" >"$TMP/no-tool.out" 2>&1; then exit 1; fi
