@@ -52,7 +52,7 @@ $ ccs auth       # resume the session matching "auth"
 - **fzf** — optional, enables the interactive picker (falls back to a numbered menu)
 - Works on **macOS (zsh)** and **Linux / WSL (bash)**. Windows: use WSL.
 
-> **Tested with** (2026-06): Claude Code **2.1.168**, Antigravity `agy` **1.0.6**, Codex `codex-cli` **0.136.0**. Session-store formats can change between CLI versions — `agy`, for example, moved conversations from `.pb` to `.db` — so newer/older builds may need adapter tweaks.
+> **Tested with:** Claude Code **2.1.168** and Antigravity `agy` **1.0.6** (2026-06); Codex `codex-cli` **0.144.1** (2026-08). Session-store formats can change between CLI versions — `agy`, for example, moved conversations from `.pb` to `.db` — so newer/older builds may need adapter tweaks.
 
 ---
 
@@ -86,7 +86,7 @@ For automation or non-interactive shells, invoke `~/.local/bin/lazyaicli` (or a 
 
 Installer overrides: `LAZYAICLI_DIR`, `LAZYAICLI_BIN_DIR`, and `LAZYAICLI_REPO_URL`. The former `ACS_DIR`, `CCS_BIN_DIR`, and `ACS_REPO_URL` names remain accepted for compatibility.
 
-> The sourced `ccs.sh` / `ags.sh` / `cxs.sh` shell functions are what let your shell **stay in the resumed session's directory after you exit** — a plain script can't change its parent shell's working directory. Sourcing is optional; the commands work standalone without it (minus the cd-persist).
+> The sourced `lazyaicli.sh` / `ccs.sh` / `ags.sh` / `cxs.sh` shell functions are what let your shell **stay in the resumed session's directory after you exit** — a plain script can't change its parent shell's working directory. Sourcing is optional; the commands work standalone without it (minus the cd-persist).
 
 ---
 
@@ -140,7 +140,7 @@ Sessions live in `~/.codex/sessions/YYYY/MM/DD/rollout-*-<UUID>.jsonl` (plain JS
 
 ### Language / 語言
 
-All three commands pick their language from your locale automatically — `zh*` → 中文, otherwise English. Force it with `LAZYAICLI_LANG=en` or `LAZYAICLI_LANG=zh`.
+All four commands pick their language from your locale automatically — `zh*` → 中文, otherwise English. Force it with `LAZYAICLI_LANG=en` or `LAZYAICLI_LANG=zh`.
 
 ---
 
