@@ -29,6 +29,10 @@ db.commit()
 PY
 
 export LAZYAICLI_LANG=en
+for cmd in ccs ags cxs; do
+  "$ROOT/bin/$cmd" --help | grep -F "Usage: $cmd"
+  "$ROOT/bin/$cmd" --version | grep -F "($cmd)"
+done
 CODEX_HOME="$TMP/codex" "$ROOT/bin/cxs" -l | grep -F '[Fix the Codex picker]'
 CXS_DRYRUN=1 CODEX_HOME="$TMP/codex" "$ROOT/bin/cxs" 1 | grep -F 'codex resume codex-123'
 CXS_DRYRUN=1 CODEX_HOME="$TMP/codex" "$ROOT/bin/cxs" '[' | grep -F 'codex resume codex-123'

@@ -12,6 +12,12 @@
 set -euo pipefail
 
 PROJECTS="${CLAUDE_PROJECTS:-$HOME/.claude/projects}"
+SCRIPT="${BASH_SOURCE[0]}"
+if [ -L "$SCRIPT" ]; then
+  TARGET="$(readlink "$SCRIPT")"
+  case "$TARGET" in /*) SCRIPT="$TARGET" ;; *) SCRIPT="$(dirname "$SCRIPT")/$TARGET" ;; esac
+fi
+ROOT="$(cd "$(dirname "$SCRIPT")/.." && pwd)"
 
 # --- i18n: pick language once, then t <en> <zh> ----------------------------
 case "${LAZYAICLI_LANG:-${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}}" in
@@ -29,6 +35,24 @@ run_python() {
     echo "$(t "✗ session parsing needs python3 or uv." "✗ 解析 session 需要 python3 或 uv。")" >&2
     return 127
   fi
+}
+
+usage() {
+  cat <<EOF
+Usage: ccs [list|-l|SESSION_NUMBER|ID_PREFIX|KEYWORD]
+
+Browse Claude Code sessions and resume one with: claude --resume <id>
+  ccs              interactive picker
+  ccs -l           list sessions (1 = newest)
+  ccs 1            resume newest session
+  ccs keyword      resume newest literal match
+EOF
+}
+
+version() {
+  local rev="dev"
+  command -v git >/dev/null 2>&1 && rev="$(git -C "$ROOT" describe --tags --always --dirty 2>/dev/null || printf dev)"
+  printf 'lazyaicli %s (ccs)\n' "$rev"
 }
 
 gather() {
@@ -140,6 +164,10 @@ resume() {
 }
 
 main() {
+  case "${1:-}" in
+    -h|--help) usage; exit 0 ;;
+    --version) version; exit 0 ;;
+  esac
   local tsv
   tsv="$(gather | sort -t$'\t' -k3,3nr)"   # newest first
   if [ -z "$tsv" ]; then
