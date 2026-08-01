@@ -45,7 +45,7 @@ $ ccs auth       # resume the session matching "auth"
 ## Requirements / 需求
 
 - **At least one supported CLI** — Claude Code, Antigravity (`agy`), and/or Codex. Each is optional; you only need the ones you actually use. Listing only reads their session files; resuming needs that CLI on `PATH`.
-- **python3** (parsing) — required
+- **python3 or uv** (parsing) — at least one is required
 - **bash** — the engine runs under bash
 - **fzf** — optional, enables the interactive picker (falls back to a numbered menu)
 - Works on **macOS (zsh)** and **Linux / WSL (bash)**. Windows: use WSL.
@@ -75,10 +75,12 @@ cd lazyaicli
 Either way, `install.sh` will:
 1. (one-liner mode) clone into `~/.local/share/lazyaicli`
 2. symlink `ccs`, `ags`, `cxs` into `~/.local/bin`
-3. detect your shell and source `ccs.sh` / `ags.sh` / `cxs.sh` from the right rc file (`~/.zshrc` / `~/.bashrc` / `~/.bash_profile`)
-4. check `python3` (required) and `fzf` (recommended); note which of `claude` / `agy` / `codex` are present
+3. add the command directory to `PATH`, then source `ccs.sh` / `ags.sh` / `cxs.sh` from the right rc file (`~/.zshrc` / `~/.bashrc` / `~/.bash_profile`)
+4. check `python3` or `uv` (one required) and `fzf` (recommended); note which of `claude` / `agy` / `codex` are present
 
 Then restart your shell (or `source` your rc file). Update later with `git -C ~/.local/share/lazyaicli pull` (or just re-run the one-liner).
+
+For automation or non-interactive shells, invoke `~/.local/bin/ccs`, `~/.local/bin/ags`, or `~/.local/bin/cxs` directly if the shell has not reloaded its rc file yet.
 
 > The sourced `ccs.sh` / `ags.sh` / `cxs.sh` shell functions are what let your shell **stay in the resumed session's directory after you exit** — a plain script can't change its parent shell's working directory. Sourcing is optional; the commands work standalone without it (minus the cd-persist).
 

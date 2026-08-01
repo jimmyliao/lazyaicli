@@ -20,8 +20,19 @@ case "${LAZYAICLI_LANG:-${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}}" in
 esac
 t() { if [ "$_LANG" = zh ]; then printf '%s' "$2"; else printf '%s' "$1"; fi; }
 
+run_python() {
+  if command -v python3 >/dev/null 2>&1; then
+    python3 "$@"
+  elif command -v uv >/dev/null 2>&1; then
+    uv run --no-project python "$@"
+  else
+    echo "$(t "✗ session parsing needs python3 or uv." "✗ 解析 session 需要 python3 或 uv。")" >&2
+    return 127
+  fi
+}
+
 gather() {
-  python3 - "$PROJECTS" <<'PY'
+  run_python - "$PROJECTS" <<'PY'
 import os, sys, json, glob, time
 root = sys.argv[1]
 now = time.time()
@@ -88,7 +99,7 @@ for f in glob.glob(os.path.join(root, "*", "*.jsonl")):
     if not cwd:                        # last resort: decode the project dir name
         dn = os.path.basename(os.path.dirname(f))
         cwd = "/" + dn.strip("-").replace("-", "/")
-    title = ctitle or aititle or "(untitled)"
+    title = " ".join((ctitle or aititle or "(untitled)").split())
     lastp = " ".join((lastp or "").split())
     short_cwd = cwd.replace(os.path.expanduser("~"), "~")
     disp = f"{ago(mt):>8}  [{title}]  {short_cwd}"
@@ -159,7 +170,7 @@ main() {
         exit 1
       fi
     else
-      match="$(printf '%s\n' "$tsv" | grep -i -m1 -- "$1" || true)"
+      match="$(printf '%s\n' "$tsv" | grep -iF -m1 -- "$1" || true)"
       if [ -z "$match" ]; then
         echo "$(t "No session matching \"${1}\"" "沒有符合「${1}」的 session")" >&2
         exit 1

@@ -2,7 +2,7 @@
 # lazyaicli installer
 #   - symlinks bin/ccs into ~/.local/bin
 #   - sources ccs.sh from the right shell rc file (cd-persist after resume)
-#   - checks deps: python3 (required), fzf (recommended)
+#   - checks deps: python3 or uv (required), fzf (recommended)
 set -euo pipefail
 
 REPO_URL="${ACS_REPO_URL:-https://github.com/jimmyliao/lazyaicli.git}"
@@ -32,11 +32,14 @@ else
 fi
 
 # --- deps -------------------------------------------------------------------
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "✗ python3 is required (sessions are parsed with python3). Aborting." >&2
+if command -v python3 >/dev/null 2>&1; then
+  echo "✓ python3: $(python3 --version 2>&1)"
+elif command -v uv >/dev/null 2>&1; then
+  echo "✓ uv: $(uv --version 2>&1) (managed Python will parse sessions)"
+else
+  echo "✗ python3 or uv is required to parse sessions. Aborting." >&2
   exit 1
 fi
-echo "✓ python3: $(python3 --version 2>&1)"
 if command -v fzf >/dev/null 2>&1; then
   echo "✓ fzf: $(fzf --version 2>&1 | head -1)"
 else
@@ -57,10 +60,6 @@ ln -sf "$REPO_DIR/bin/ags" "$BIN_DIR/ags"
 echo "✓ linked $BIN_DIR/ags -> $REPO_DIR/bin/ags   (Antigravity agy sessions)"
 ln -sf "$REPO_DIR/bin/cxs" "$BIN_DIR/cxs"
 echo "✓ linked $BIN_DIR/cxs -> $REPO_DIR/bin/cxs   (Codex sessions)"
-case ":$PATH:" in
-  *":$BIN_DIR:"*) ;;
-  *) echo "⚠ $BIN_DIR is not on PATH — add it, e.g.  export PATH=\"$BIN_DIR:\$PATH\"" ;;
-esac
 
 # --- source the shell function (cd-persist) --------------------------------
 detect_rc() {
@@ -72,6 +71,15 @@ detect_rc() {
 }
 RC="$(detect_rc)"
 if [ -n "$RC" ]; then
+  touch "$RC"
+  if case ":$PATH:" in *":$BIN_DIR:"*) true;; *) false;; esac; then
+    :
+  elif grep -qF "export PATH=\"$BIN_DIR:\$PATH\"" "$RC" 2>/dev/null; then
+    echo "✓ $BIN_DIR PATH already configured in $RC"
+  else
+    printf '\n# lazyaicli commands\nexport PATH="%s:$PATH"\n' "$BIN_DIR" >> "$RC"
+    echo "✓ added $BIN_DIR to PATH in $RC"
+  fi
   if grep -qF "$REPO_DIR/ccs.sh" "$RC" 2>/dev/null; then
     echo "✓ ccs.sh already sourced in $RC"
   else
