@@ -36,6 +36,7 @@ done
 CODEX_HOME="$TMP/codex" "$ROOT/bin/cxs" -l | grep -F '[Fix the Codex picker]'
 CXS_DRYRUN=1 CODEX_HOME="$TMP/codex" "$ROOT/bin/cxs" 1 | grep -F 'codex resume codex-123'
 CXS_DRYRUN=1 CODEX_HOME="$TMP/codex" "$ROOT/bin/cxs" '[' | grep -F 'codex resume codex-123'
+printf '1\n' | CXS_DRYRUN=1 CODEX_HOME="$TMP/codex" "$ROOT/bin/cxs" | grep -F 'codex resume codex-123'
 CLAUDE_PROJECTS="$TMP/claude" "$ROOT/bin/ccs" -l | grep -F '[Claude picker]'
 CCS_DRYRUN=1 CLAUDE_PROJECTS="$TMP/claude" "$ROOT/bin/ccs" 1 | grep -F 'claude --resume claude-123'
 AGY_HOME="$TMP/agy" "$ROOT/bin/ags" -l | grep -F '[Improve the Antigravity picker workflow]'
@@ -49,6 +50,13 @@ printf '%s\t%s\n' "$PWD" "$*" >> "$LAZYAICLI_CALLS"
 SH
   chmod +x "$TMP/fake-bin/$backend"
 done
+cat > "$TMP/fake-bin/fzf" <<'SH'
+#!/usr/bin/env bash
+head -1
+SH
+chmod +x "$TMP/fake-bin/fzf"
+CXS_DRYRUN=1 CODEX_HOME="$TMP/codex" PATH="$TMP/fake-bin:$PATH" "$ROOT/bin/cxs" \
+  | grep -F 'codex resume codex-123'
 export LAZYAICLI_CALLS="$TMP/backend-calls"
 PATH="$ROOT/bin:$TMP/fake-bin:$PATH"
 export PATH

@@ -130,7 +130,7 @@ All three commands pick their language from your locale automatically — `zh*` 
 
 ## How it works / 原理
 
-One engine, three thin adapters. The engine: scan a tool's session store → one row per session (`id` / name / `cwd` / mtime) → sort newest-last → pick (`fzf`, or a number/keyword) → `cd` into the session's directory → run that tool's resume command. **Listing is read-only** over files the CLI already writes, so there's no save step; only *resume* needs the CLI on `PATH`.
+One shared engine ([`lib/engine.sh`](./lib/engine.sh)), three thin adapters. Each adapter scans its tool's session store and emits one TSV row per session (`id` / name / `cwd` / mtime); the engine sorts newest-last → picks with `fzf` or a number/keyword → hands the record to that adapter's resume function. **Listing is read-only** over files the CLI already writes, so there's no save step; only *resume* needs the CLI on `PATH`.
 
 What differs per tool:
 
@@ -148,7 +148,7 @@ What differs per tool:
 
 Today **Claude Code, Antigravity (`agy`), and Codex** all work — `ccs` / `ags` / `cxs`. Next up:
 
-- [ ] extract the shared engine — `bin/ccs` / `bin/ags` / `bin/cxs` still duplicate it (each should be just gather + resume)
+- [x] extract the shared shell engine — selection, list, i18n, Python fallback, help/version live in `lib/engine.sh`
 - [ ] decode legacy `agy` `.pb` conversations for names (they list as `[legacy]` today)
 - [ ] more backends (OpenCode, Cursor, Copilot CLI, Gemini CLI, …)
 - [ ] auto-detect installed tools + a top-level dispatcher

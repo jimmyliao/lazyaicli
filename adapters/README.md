@@ -6,13 +6,20 @@ The shared UX never changes — adding a new tool means writing one adapter, not
 
 ## Adapter contract
 
-An adapter must provide:
+An adapter sources [`../lib/engine.sh`](../lib/engine.sh) and must provide:
 
 | # | Responsibility | Claude Code (today) |
 |---|----------------|---------------------|
 | 1 | **Enumerate sessions** — where they live | glob `~/.claude/projects/*/*.jsonl` |
 | 2 | **Parse** each into a common record | read jsonl tail → fields below |
 | 3 | **Resume command** | `cd <cwd> && claude --resume <id>` |
+
+Shell contract:
+
+- `gather()` emits six-column TSV: `id`, `cwd`, `mtime`, `name`, `preview`, `displayline`.
+- `resume <id> <cwd>` performs dry-run/emit/direct resume for that backend.
+- `usage()` and `no_sessions()` provide adapter-specific help and empty-state text.
+- `LAZY_COMMAND`, `LAZY_ITEM_EN/ZH`, and `LAZY_FZF_HEADER_EN/ZH` supply display labels.
 
 Common session record (what the engine consumes):
 
@@ -40,9 +47,8 @@ Common session record (what the engine consumes):
   `~/.codex/sessions/**/rollout-*-<UUID>.jsonl` (plain JSONL); id + cwd from the
   `session_meta` line; name = first real user prompt; resume `codex resume <id>`.
 
-> **Refactor note (v0.5):** `bin/ccs`, `bin/ags`, `bin/cxs` currently duplicate the
-> shared engine (gather → fzf → list/number/keyword → cd → resume). With three real
-> adapters in place, the next step is to extract that engine here and make each
-> `bin/*` a thin gather()+resume() entrypoint. The record shape above is the seam.
+The shared engine now owns help/version, language selection, Python/uv fallback,
+sorting, list/number/literal-keyword selection, fzf/menu interaction, and dispatch
+to `resume()`. Adapter parsing and backend invocation stay tool-specific.
 
 See [../ROADMAP.md](../ROADMAP.md).

@@ -8,9 +8,9 @@
 - [x] `install.sh` with shell/rc detection (zsh / bash on macOS & Linux/WSL)
 
 ## v0.2 — Adapter seam
-- [ ] extract shared engine (gather → fzf → cd → resume) from `bin/ccs`
-- [ ] formalize the adapter contract (see [adapters/README.md](./adapters/README.md))
-- [ ] `bin/ccs` becomes the thin `claude` entrypoint
+- [x] extract shared engine (gather → fzf → cd → resume) from `bin/ccs`
+- [x] formalize the adapter contract (see [adapters/README.md](./adapters/README.md))
+- [x] `bin/ccs` becomes the thin `claude` entrypoint
 
 ## v0.3 — Antigravity (`agy`)  ✅ shipped
 - [x] reverse-engineered storage: `~/.gemini/antigravity-cli/conversations/<UUID>.db` (SQLite) / `.pb` (legacy protobuf)
@@ -26,11 +26,11 @@
 - [x] resume via `codex resume <id>`; shipped as command `cxs` + `cxs.sh`
 
 ## v0.5 — Extract shared engine (refactor)
-- [ ] `bin/ccs` / `bin/ags` / `bin/cxs` duplicate the engine — extract to `lib/`
-- [ ] each tool becomes gather() + resume() only (see [adapters/README.md](./adapters/README.md))
+- [x] `bin/ccs` / `bin/ags` / `bin/cxs` share selection/runtime logic from `lib/engine.sh`
+- [x] each adapter provides gather(), resume(), usage(), empty-state, and display labels
 - [ ] auto-detect installed tools; a top-level dispatcher across all of them
 
 ## Nice-to-have
-- [ ] i18n of user-facing strings (currently mixed zh-TW / English)
+- [x] i18n of shared user-facing strings (locale auto-detect plus `LAZYAICLI_LANG` override)
 - [ ] `fish` shell function (`ccs.fish`) for cd-persist
 - [ ] optional preview pane (session summary) in the fzf picker

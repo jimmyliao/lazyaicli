@@ -18,24 +18,12 @@ if [ -L "$SCRIPT" ]; then
   case "$TARGET" in /*) SCRIPT="$TARGET" ;; *) SCRIPT="$(dirname "$SCRIPT")/$TARGET" ;; esac
 fi
 ROOT="$(cd "$(dirname "$SCRIPT")/.." && pwd)"
-
-# --- i18n: pick language once, then t <en> <zh> ----------------------------
-case "${LAZYAICLI_LANG:-${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}}" in
-  zh*) _LANG=zh ;;
-  *)   _LANG=en ;;
-esac
-t() { if [ "$_LANG" = zh ]; then printf '%s' "$2"; else printf '%s' "$1"; fi; }
-
-run_python() {
-  if command -v python3 >/dev/null 2>&1; then
-    python3 "$@"
-  elif command -v uv >/dev/null 2>&1; then
-    uv run --no-project python "$@"
-  else
-    echo "$(t "✗ session parsing needs python3 or uv." "✗ 解析 session 需要 python3 或 uv。")" >&2
-    return 127
-  fi
-}
+LAZY_COMMAND=ccs
+LAZY_ITEM_EN=session
+LAZY_ITEM_ZH=' session'
+LAZY_FZF_HEADER_EN='↑↓ choose · Enter resume · Esc cancel'
+LAZY_FZF_HEADER_ZH='↑↓ 選 session · Enter 還原 · Esc 取消'
+source "$ROOT/lib/engine.sh"
 
 usage() {
   cat <<EOF
@@ -47,12 +35,6 @@ Browse Claude Code sessions and resume one with: claude --resume <id>
   ccs 1            resume newest session
   ccs keyword      resume newest literal match
 EOF
-}
-
-version() {
-  local rev="dev"
-  command -v git >/dev/null 2>&1 && rev="$(git -C "$ROOT" describe --tags --always --dirty 2>/dev/null || printf dev)"
-  printf 'lazyaicli %s (ccs)\n' "$rev"
 }
 
 gather() {
@@ -163,69 +145,14 @@ resume() {
   exec claude --resume "$id"
 }
 
-main() {
-  case "${1:-}" in
-    -h|--help) usage; exit 0 ;;
-    --version) version; exit 0 ;;
-  esac
-  local tsv
-  tsv="$(gather | sort -t$'\t' -k3,3nr)"   # newest first
-  if [ -z "$tsv" ]; then
-    if [ ! -d "$PROJECTS" ]; then
-      echo "$(t "No Claude Code sessions dir (${PROJECTS}) — is Claude Code installed and used at least once?" \
-               "找不到 Claude Code session 目錄（${PROJECTS}）——裝了 Claude Code 並用過至少一次嗎？")" >&2
-    else
-      echo "$(t "No Claude Code sessions yet (${PROJECTS})." \
-               "目前沒有任何 Claude Code session（${PROJECTS}）。")" >&2
-    fi
-    exit 1
-  fi
-
-  # List only (newest at the bottom, next to the prompt; number 1 = newest).
-  if [ "${1:-}" = "-l" ] || [ "${1:-}" = "--list" ] || [ "${1:-}" = "ls" ] || [ "${1:-}" = "list" ]; then
-    printf '%s\n' "$tsv" | awk -F'\t' '{n[NR]=$6} END{for(i=NR;i>=1;i--) printf "%2d) %s\n", i, n[i]}'
-    exit 0
-  fi
-
-  # Direct argument: a pure number = list index (1 = newest, matches `ccs -l`); otherwise id prefix / keyword.
-  if [ -n "${1:-}" ]; then
-    local match
-    if printf '%s' "$1" | grep -qE '^[0-9]+$'; then
-      match="$(printf '%s\n' "$tsv" | sed -n "${1}p")"
-      if [ -z "$match" ]; then
-        local total; total="$(printf '%s\n' "$tsv" | grep -c .)"
-        echo "$(t "No session #${1} (${total} total)" "沒有第 ${1} 個 session（共 ${total} 個）")" >&2
-        exit 1
-      fi
-    else
-      match="$(printf '%s\n' "$tsv" | grep -iF -m1 -- "$1" || true)"
-      if [ -z "$match" ]; then
-        echo "$(t "No session matching \"${1}\"" "沒有符合「${1}」的 session")" >&2
-        exit 1
-      fi
-    fi
-    resume "$(printf '%s' "$match" | cut -f1)" "$(printf '%s' "$match" | cut -f2)"
-    exit 0
-  fi
-
-  # Interactive pick.
-  if command -v fzf >/dev/null 2>&1; then
-    local pick
-    pick="$(printf '%s\n' "$tsv" \
-      | fzf --delimiter='\t' --with-nth=6 --height=90% --reverse \
-            --prompt='resume> ' --header="$(t "↑↓ choose · Enter resume · Esc cancel" "↑↓ 選 session · Enter 還原 · Esc 取消")")" || exit 0
-    [ -z "$pick" ] && exit 0
-    resume "$(printf '%s' "$pick" | cut -f1)" "$(printf '%s' "$pick" | cut -f2)"
+no_sessions() {
+  if [ ! -d "$PROJECTS" ]; then
+    echo "$(t "No Claude Code sessions dir (${PROJECTS}) — is Claude Code installed and used at least once?" \
+             "找不到 Claude Code session 目錄（${PROJECTS}）——裝了 Claude Code 並用過至少一次嗎？")" >&2
   else
-    printf '%s\n' "$tsv" | awk -F'\t' '{printf "%2d) %s\n", NR, $6}'
-    printf '%s' "$(t "Pick # (Enter to cancel): " "選擇 #（Enter 取消）：")"
-    read -r n
-    [ -z "$n" ] && exit 0
-    local line
-    line="$(printf '%s\n' "$tsv" | sed -n "${n}p")"
-    [ -z "$line" ] && { echo "$(t "invalid choice" "無效選擇")" >&2; exit 1; }
-    resume "$(printf '%s' "$line" | cut -f1)" "$(printf '%s' "$line" | cut -f2)"
+    echo "$(t "No Claude Code sessions yet (${PROJECTS})." \
+             "目前沒有任何 Claude Code session（${PROJECTS}）。")" >&2
   fi
 }
 
-main "$@"
+engine_main "$@"
