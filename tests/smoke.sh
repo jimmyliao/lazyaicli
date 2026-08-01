@@ -102,4 +102,17 @@ HOME="$TMP/legacy-home" SHELL=/bin/unknown CCS_BIN_DIR="$TMP/legacy-bin" \
   bash "$ROOT/install.sh" >/dev/null
 test -L "$TMP/legacy-bin/lazyaicli"
 
+# Recommended curl|bash path: process-substitution forces bootstrap mode while a
+# local file:// remote keeps the test deterministic and offline.
+for run in 1 2; do
+  HOME="$TMP/bootstrap-home" SHELL=/bin/unknown \
+    LAZYAICLI_REPO_URL="file://$ROOT" \
+    LAZYAICLI_DIR="$TMP/bootstrap-share/lazyaicli" \
+    LAZYAICLI_BIN_DIR="$TMP/bootstrap-bin" \
+    bash <(cat "$ROOT/install.sh") >/dev/null
+done
+test -d "$TMP/bootstrap-share/lazyaicli/.git"
+test "$(readlink "$TMP/bootstrap-bin/lazyaicli")" = "$TMP/bootstrap-share/lazyaicli/bin/lazyaicli"
+PATH="$TMP/bootstrap-bin:$PATH" lazyaicli --help | grep -F 'Usage: lazyaicli'
+
 echo 'smoke tests passed'
