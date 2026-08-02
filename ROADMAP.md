@@ -8,6 +8,7 @@
 - [x] self-contained executable with no user runtime libraries
 - [x] consistent list, selection, search, cwd, and resume behavior
 - [x] Linux/macOS amd64/arm64 release builds
+- [x] native Windows amd64 binary and PowerShell installer
 - [ ] validate more real-world AGY SQLite schema variants
 - [ ] signed release artifacts and checksums
-- [ ] native Windows support
+- [ ] Windows arm64 support

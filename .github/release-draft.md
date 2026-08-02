@@ -7,7 +7,7 @@ Review draft — not yet published.
 - One `lazyai` wrapper for AGY, Claude Code, and Codex.
 - AGY is the default backend; users can persist a different default.
 - Existing `ags`, `ccs`, and `cxs` commands remain available.
-- Self-contained Linux and macOS binaries for amd64 and arm64.
+- Self-contained Linux and macOS binaries for amd64 and arm64, plus native Windows amd64.
 - No Python, uv, jq, fzf, or other user runtime libraries.
 - Shared list, search, session selection, cwd, and resume behavior.
 
