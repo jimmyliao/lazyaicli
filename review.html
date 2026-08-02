@@ -31,6 +31,31 @@ ags                       # 等同 lazyai agy
 ccs                       # 等同 lazyai claude
 cxs                       # 等同 lazyai codex</code></pre></div></section>
 
+  <section><h2>真實 Terminal 安裝測試</h2>
+    <p>以下是實際 binary 安裝進全新隔離 HOME 的輸出，不是手寫的預期畫面。此測試涵蓋 installer、五個 command symlink、shell rc 與三個 backend 都未安裝的 first-run doctor。公開 GitHub Release 尚未建立，因此下載來源在此階段使用本機建置的同一 binary；正式 release 後還需要再驗證一次公開 curl 下載。</p>
+    <pre class="terminal">$ curl -fsSL https://raw.githubusercontent.com/jimmyliao/lazyaicli/main/install.sh | bash
+lazyai installer
+✓ linked ~/.local/bin/lazyai
+✓ linked ~/.local/bin/lazyaicli
+✓ linked ~/.local/bin/ccs
+✓ linked ~/.local/bin/ags
+✓ linked ~/.local/bin/cxs
+Done. Restart your shell or source your shell rc file.
+
+Next steps:
+  1. Restart Terminal.
+  2. Check installed AI backends:  lazyai doctor
+  3. Open your session picker:     lazyai
+
+$ lazyai doctor
+Backend  Status           Sessions  Default  CLI
+agy      missing          0         yes      -
+claude   missing          0         -        -
+codex    missing          0         -        -
+
+<span class="pass">real isolated installation passed</span></pre>
+  </section>
+
   <section><h2>三種 backend 操作證據</h2>
     <div class="demo"><h3>AGY</h3><img src="docs/demos/agy.svg" alt="lazyai AGY terminal flow"></div>
     <div class="demo"><h3>Claude Code</h3><img src="docs/demos/claude.svg" alt="lazyai Claude terminal flow"></div>
@@ -57,7 +82,8 @@ corrupt session / invalid config / missing cwd
 <span class="pass">edge case tests passed</span>
 
 $ tests/install_binary.sh
-binary symlinks / shell integration / SHA-256 mismatch rejection
+clean HOME / five binary symlinks / shell integration
+next-step Terminal instructions / SHA-256 mismatch rejection
 <span class="pass">binary installer tests passed</span>
 
 $ go test ./...

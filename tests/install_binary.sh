@@ -13,6 +13,13 @@ if grep -Eiq 'python|uv|jq|fzf' "$TMP/home/.bashrc"; then
   echo 'unexpected runtime dependency in shell setup' >&2; exit 1
 fi
 
+HOME="$TMP/message-home" SHELL=/bin/bash LAZYAI_BINARY="$ROOT/dist/lazyai" \
+  LAZYAICLI_BIN_DIR="$TMP/message-bin" LAZYAICLI_DIR="$TMP/message-share" \
+  "$ROOT/install.sh" >"$TMP/install-message"
+grep -F 'Next steps:' "$TMP/install-message" >/dev/null
+grep -F 'lazyai doctor' "$TMP/install-message" >/dev/null
+grep -F 'lazyai' "$TMP/install-message" >/dev/null
+
 # A supplied or downloaded checksum is mandatory security input: mismatch must
 # fail before the executable or symlinks are installed.
 if HOME="$TMP/bad-home" SHELL=/bin/bash LAZYAI_BINARY="$ROOT/dist/lazyai" \

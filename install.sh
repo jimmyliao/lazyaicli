@@ -91,3 +91,11 @@ if [ -n "$RC" ]; then
 else
   echo "Done. Add $BIN_DIR to PATH."
 fi
+
+echo ""
+echo "Next steps:"
+echo "  1. Restart Terminal (or source your shell rc file shown above)."
+echo "  2. Check installed AI backends:  lazyai doctor"
+echo "  3. Open your session picker:     lazyai"
+echo ""
+echo "No backend yet? Install AGY, Claude Code, or Codex, then run lazyai doctor again."

@@ -4,18 +4,63 @@ Browse and resume Claude Code, Antigravity, and Codex sessions with one consiste
 
 ## Quick start
 
+You only need a Terminal. No IDE or graphical installer is required.
+
+### 1. Open Terminal
+
+- **macOS:** press `Command + Space`, type `Terminal`, then press Enter.
+- **Linux:** open the application menu and search for `Terminal`, or press `Ctrl + Alt + T` on distributions that support it.
+
+### 2. Paste the install command
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jimmyliao/lazyaicli/main/install.sh | bash
+```
+
+The installer detects macOS/Linux and amd64/arm64, downloads the matching self-contained binary, verifies its SHA-256 checksum, and configures the command path.
+
+### 3. Restart Terminal and check your setup
+
+Close and reopen Terminal, then run:
+
+```bash
+lazyai doctor
+```
+
+It is safe to install `lazyai` before installing any AI backend. If AGY, Claude Code, and Codex are all missing, `doctor` explains that state without treating installation as failed.
+
+### 4. Open the session picker
+
+After at least one supported AI CLI is installed and has created a session:
+
+```bash
 lazyai
 ```
 
-`lazyai` opens AGY by default. Change the default at any time:
+`lazyai` prefers AGY when several backends are installed. If exactly one backend exists, it uses that backend automatically. Change the default at any time:
 
 ```bash
 lazyai default codex
 lazyai default claude
 lazyai default agy
 ```
+
+Expected first-run checks:
+
+```text
+$ lazyai doctor
+Backend  Status           Sessions  Default  CLI
+agy      missing          0         yes      -
+claude   installed-empty  0         -        /path/to/claude
+codex    ready            3         -        /path/to/codex
+```
+
+Status meanings:
+
+- `ready`: CLI and sessions are available.
+- `installed-empty`: CLI is installed but has not created a session yet.
+- `sessions-only`: historical sessions exist, but the original CLI is unavailable.
+- `missing`: neither CLI nor sessions were found.
 
 ### Backend detection
 
