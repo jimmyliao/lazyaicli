@@ -1,0 +1,5 @@
+{"version":2,"width":100,"height":9,"timestamp":1785629871,"env":{"SHELL":"/bin/bash","TERM":"xterm-256color"}}
+[0.2,"o","\u001b[1;36m$ lazyai agy -l\u001b[0m\r\n"]
+[0.6,"o"," 1)   0s ago  [Improve the Antigravity workflow]  /tmp/lazyai-demo-project\r\n"]
+[1,"o","\r\n\u001b[1;36m$ lazyai agy 1\u001b[0m\r\n"]
+[1.4,"o","→ cd /tmp/lazyai-demo-project && agy --conversation agy-demo\r\n"]

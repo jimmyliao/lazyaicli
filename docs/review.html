@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>lazyai — Release Review Draft</title>
+  <style>
+    :root{color-scheme:dark;--bg:#07111f;--card:#0f1d30;--line:#29405f;--text:#e8f0fb;--muted:#9eb0c8;--cyan:#45d7ff;--green:#62e6a7}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#153354 0,transparent 34%),var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,"Noto Sans TC",sans-serif}
+    main{width:min(1080px,92vw);margin:0 auto;padding:64px 0 80px}.eyebrow{color:var(--cyan);font-weight:700;letter-spacing:.12em;text-transform:uppercase}h1{font-size:clamp(2.7rem,8vw,6rem);line-height:.95;margin:.2em 0}.lead{max-width:760px;color:var(--muted);font-size:1.2rem}.status{display:inline-flex;gap:.55rem;align-items:center;padding:.45rem .8rem;border:1px solid var(--line);border-radius:999px}.dot{width:.65rem;height:.65rem;border-radius:50%;background:#ffc857}section{margin-top:56px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}.card{background:color-mix(in srgb,var(--card) 92%,transparent);border:1px solid var(--line);border-radius:16px;padding:22px}.card h3{margin:0 0 6px}.card p,li{color:var(--muted)}code{color:var(--green);background:#091522;padding:.16rem .38rem;border-radius:5px}.demo{margin:20px 0 34px}.demo img{display:block;width:100%;border:1px solid var(--line);border-radius:13px;background:#000}.checklist li{margin:.55rem 0}footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);color:var(--muted)}
+  </style>
+</head>
+<body><main>
+  <div class="eyebrow">Release review</div>
+  <h1>lazyai</h1>
+  <p class="lead">一個 wrapper，統一瀏覽與恢復 AGY、Claude Code、Codex sessions。這是發布前審閱頁，不是正式 release announcement。</p>
+  <div class="status"><span class="dot"></span>Draft · waiting for Jimmy review</div>
+
+  <section><h2>這一版要解決什麼？</h2><div class="grid">
+    <article class="card"><h3>單一入口</h3><p><code>lazyai</code> 預設開啟 AGY，也可直接指定 <code>claude</code> 或 <code>codex</code>。</p></article>
+    <article class="card"><h3>保留熟悉命令</h3><p><code>ags</code>、<code>ccs</code>、<code>cxs</code> 都保留，既有肌肉記憶不受影響。</p></article>
+    <article class="card"><h3>零額外 runtime lib</h3><p>使用者不必安裝 Python、uv、jq 或 fzf；下載 self-contained binary 即可。</p></article>
+  </div></section>
+
+  <section><h2>預期使用方式</h2><div class="card"><pre><code>lazyai                    # 使用預設 backend（新安裝為 AGY）
+lazyai default codex      # 修改並保存預設 backend
+lazyai claude -l          # 列出 Claude sessions
+lazyai codex auth         # 搜尋並恢復 session
+
+ags                       # 等同 lazyai agy
+ccs                       # 等同 lazyai claude
+cxs                       # 等同 lazyai codex</code></pre></div></section>
+
+  <section><h2>三種 backend 操作證據</h2>
+    <div class="demo"><h3>AGY</h3><img src="demos/agy.svg" alt="lazyai AGY terminal flow"></div>
+    <div class="demo"><h3>Claude Code</h3><img src="demos/claude.svg" alt="lazyai Claude terminal flow"></div>
+    <div class="demo"><h3>Codex</h3><img src="demos/codex.svg" alt="lazyai Codex terminal flow"></div>
+  </section>
+
+  <section><h2>已驗證</h2><div class="grid">
+    <div class="card">CLI help／README contract</div><div class="card">三 backend fake-session flow</div>
+    <div class="card">Shell cwd persistence</div><div class="card">Binary installer</div>
+    <div class="card">Go test／vet／format</div><div class="card">真實 AGY SQLite 唯讀 listing</div>
+  </div></section>
+
+  <section><h2>Reviewer checklist</h2><ul class="checklist">
+    <li>確認產品名稱與主指令使用 <code>lazyai</code></li>
+    <li>確認新安裝預設 backend 為 AGY</li>
+    <li>確認 <code>default / list / doctor</code> 指令體驗</li>
+    <li>確認四個平台 release binary：Linux／macOS × amd64／arm64</li>
+    <li>確認後才發布 GitHub Draft Release</li>
+  </ul></section>
+  <footer>Generated for internal review · 2026-08-02</footer>
+</main></body></html>

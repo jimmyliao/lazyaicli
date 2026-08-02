@@ -1,36 +1,3 @@
 # shellcheck shell=bash
-# ags.sh — sourced shell-function wrapper for ags (Antigravity CLI session browser)
-#
-# Lets `ags` keep your shell in the resumed conversation's directory after you
-# exit (persisting cd to the parent shell requires a sourced function).
-#
-# Install: run ./install.sh, or add to your ~/.zshrc / ~/.bashrc:
-#     source /path/to/lazyaicli/ags.sh
-#
-# Behaviour:
-#   ags                interactive pick → cd into the dir + agy --conversation (stays there on exit)
-#   ags <keyword|id|N> resume directly → same
-#   ags -l / ls / list list only (no cd, no resume)
-#   other flags        passed through to the underlying ags script
-
-ags() {
-  case "${1:-}" in
-    -l|--list|ls|list|-h|--help|--version)
-      command ags "$@"; return $? ;;
-  esac
-
-  local out
-  out="$(AGS_EMIT=1 command ags "$@")" || return $?
-  [ -z "$out" ] && return 0
-
-  local dir="${out%%$'\t'*}" id="${out#*$'\t'}"
-  if [ -n "$dir" ] && [ -d "$dir" ]; then
-    cd "$dir" || return 1
-  elif [ -n "$dir" ]; then
-    case "${LAZYAICLI_LANG:-${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}}" in
-      zh*) echo "⚠ 目錄不存在：${dir}，留在原地還原" >&2 ;;
-      *)   echo "⚠ directory not found: ${dir} — resuming in place" >&2 ;;
-    esac
-  fi
-  command agy --conversation "$id"
-}
+[ "$(type -t _lazyai_resume 2>/dev/null)" = function ] || source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lazyaicli.sh"
+ags() { _lazyai_resume agy "$@"; }
