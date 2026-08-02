@@ -6,6 +6,7 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/home" "$TMP/bin" "$TMP/claude/empty" "$TMP/codex/sessions/2026/08/02" \
   "$TMP/agy/conversations" "$TMP/agy/cache" "$TMP/work"
 export HOME="$TMP/home" CLAUDE_PROJECTS="$TMP/claude" CODEX_HOME="$TMP/codex" AGY_HOME="$TMP/agy"
+export XDG_CONFIG_HOME="$HOME/.config"
 
 printf '\012\013AGY session' >"$TMP/agy/conversations/agy-edge.pb"
 printf '{"%s":"agy-edge"}\n' "$TMP/work" >"$TMP/agy/cache/last_conversations.json"

@@ -24,6 +24,7 @@ printf '\012\040Improve the Antigravity workflow' \
 printf '{"%s":"agy-123"}\n' "$WORK" >"$TMP/agy/cache/last_conversations.json"
 
 export HOME="$TMP/home" CLAUDE_PROJECTS="$TMP/claude" CODEX_HOME="$TMP/codex" AGY_HOME="$TMP/agy"
+export XDG_CONFIG_HOME="$HOME/.config"
 mkdir -p "$HOME"
 
 "$BIN" claude -l | grep -F '[Fix Claude login]'
