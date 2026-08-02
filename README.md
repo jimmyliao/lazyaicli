@@ -1,161 +1,237 @@
-# lazyaicli
+# lazyai
 
-> Browse and resume your AI coding CLI sessions from the terminal — pick one, jump straight back into it (and back into its directory).
->
-> 在終端機列出、跳回你的 AI coding CLI session —— 挑一個，直接還原（連工作目錄一起回去）。
+Browse and resume Claude Code, Antigravity, and Codex sessions with one consistent CLI.
 
-**繁體中文 | English** · MIT License
+## Quick start
 
-**lazyaicli** is the project; it ships three commands, one per tool, sharing one engine. Each name is just `<tool> Sessions`:
+You only need a Terminal. No IDE or graphical installer is required.
 
-- **`ccs`** — **C**laude **C**ode **S**essions (`~/.claude/projects`)
-- **`ags`** — **A**nti**g**ravity **S**essions · `agy` (`~/.gemini/antigravity-cli/conversations`)
-- **`cxs`** — Code**x** **S**essions (`~/.codex/sessions`)
+### 1. Open Terminal or PowerShell
 
-Same UX everywhere — list → pick → `cd` → resume. Adding a tool is one adapter.
+- **macOS:** press `Command + Space`, type `Terminal`, then press Enter.
+- **Linux:** open the application menu and search for `Terminal`, or press `Ctrl + Alt + T` on distributions that support it.
+- **Windows 10/11 amd64:** open Start, type `PowerShell`, then choose Windows PowerShell or PowerShell.
 
----
+### 2. Paste the install command
 
-## Why / 為什麼
+```bash
+curl -fsSL https://raw.githubusercontent.com/jimmyliao/lazyaicli/main/install.sh | bash
+```
 
-Terminal AI coding agents write a session per project, but resuming the *right* one means remembering a long id and `cd`-ing to the right folder. On an ephemeral / preemptible cloud box, a reboot wipes your terminal and you restore them by hand.
+Windows PowerShell:
 
-終端機 AI coding agent 每個專案存一個 session，但要還原「對的那個」得記一長串 id、再 `cd` 回對的目錄。在會被回收的雲端機（Spot/preemptible）上，重開機後還得手動一個個救回來。
+```powershell
+irm https://raw.githubusercontent.com/jimmyliao/lazyaicli/main/install.ps1 | iex
+```
 
-`ccs` lists every session with its **title / last prompt / directory / age**, lets you pick with `fzf`, then `cd`s into that session's directory and resumes it.
+The installer detects the platform, downloads the matching self-contained binary, verifies its SHA-256 checksum, and configures the command path. Native release targets are Linux/macOS amd64 and arm64, plus Windows amd64. Windows does not require WSL.
 
----
+### 3. Restart Terminal and check your setup
 
-## Demo
+Close and reopen Terminal or PowerShell, then run:
+
+```bash
+lazyai doctor
+```
+
+It is safe to install `lazyai` before installing any AI backend. If AGY, Claude Code, and Codex are all missing, `doctor` explains that state without treating installation as failed.
+
+### 4. Open the session picker
+
+After at least one supported AI CLI is installed and has created a session:
+
+```bash
+lazyai
+```
+
+`lazyai` prefers AGY when several backends are installed. If exactly one backend exists, it uses that backend automatically. Change the default at any time:
+
+```bash
+lazyai default codex
+lazyai default claude
+lazyai default agy
+```
+
+Expected first-run checks:
 
 ```text
-$ ccs -l
- 3)  2d ago  [Fix login redirect bug]   ~/projects/web-app   ↳ the session cookie isn't set on the callback route
- 2)  5h ago  [Refactor payment module]  ~/projects/api       ↳ extract the stripe client into its own module
- 1)  3m ago  [Write auth unit tests]    ~/projects/web-app   ↳ add coverage for the middleware
-
-$ ccs            # interactive fzf picker → cd + resume
-$ ccs auth       # resume the session matching "auth"
+$ lazyai doctor
+Backend  Status           Sessions  Default  CLI
+agy      missing          0         yes      -
+claude   installed-empty  0         -        /path/to/claude
+codex    ready            3         -        /path/to/codex
 ```
 
-> Newest is listed at the **bottom** (closest to your prompt); `1)` is always the most recent.
+Status meanings:
 
----
+- `ready`: CLI and sessions are available.
+- `installed-empty`: CLI is installed but has not created a session yet.
+- `sessions-only`: historical sessions exist, but the original CLI is unavailable.
+- `missing`: neither CLI nor sessions were found.
 
-## Requirements / 需求
+### Backend detection
 
-- **At least one supported CLI** — Claude Code, Antigravity (`agy`), and/or Codex. Each is optional; you only need the ones you actually use. Listing only reads their session files; resuming needs that CLI on `PATH`.
-- **python3** (parsing) — required
-- **bash** — the engine runs under bash
-- **fzf** — optional, enables the interactive picker (falls back to a numbered menu)
-- Works on **macOS (zsh)** and **Linux / WSL (bash)**. Windows: use WSL.
+Installation succeeds even when AGY, Claude Code, and Codex are all absent. At runtime `lazyai` checks executable files on `PATH` independently from historical session stores:
 
-> **Tested with** (2026-06): Claude Code **2.1.168**, Antigravity `agy` **1.0.6**, Codex `codex-cli` **0.136.0**. Session-store formats can change between CLI versions — `agy`, for example, moved conversations from `.pb` to `.db` — so newer/older builds may need adapter tweaks.
+- With no installed backend, it shows onboarding and `lazyai doctor` guidance.
+- With exactly one installed backend, it uses that backend automatically.
+- With multiple installed backends, AGY wins when available.
+- With Claude and Codex but no AGY or configured default, it asks for an explicit backend.
+- An explicit default is never silently replaced. If it later disappears, `lazyai` reports the problem and suggests available backends.
+- `lazyai default <backend>` refuses an unavailable executable and leaves the existing configuration unchanged.
 
----
+Read-only session listing remains available for a `sessions-only` backend; resuming requires its original CLI.
 
-## Install / 安裝
+## Backend demos
 
-**One-liner (recommended):**
+The captures below are generated by running the real `lazyai` binary against deterministic fake sessions and dry-running each backend resume command.
+
+### AGY
+
+![lazyai AGY session flow](docs/demos/agy.svg)
+
+### Claude Code
+
+![lazyai Claude session flow](docs/demos/claude.svg)
+
+### Codex
+
+![lazyai Codex session flow](docs/demos/codex.svg)
+
+## Runtime dependency guarantee
+
+`lazyai` is distributed as a self-contained executable. Users do **not** need to install Python, uv, jq, fzf, Node packages, or other runtime libraries.
+
+- `ags` requires only the existing `agy` CLI when resuming a session.
+- `ccs` requires only the existing `claude` CLI when resuming a session.
+- `cxs` requires only the existing `codex` CLI when resuming a session.
+- Listing and searching local sessions work without launching the backend CLI.
+
+Supported release targets: Linux and macOS on amd64 and arm64, plus native Windows 10/11 on amd64.
+
+## Command reference
+
+This section mirrors `lazyai --help`. The CLI contract tests prevent these commands from silently drifting.
+
+```text
+lazyai — browse and resume AI coding sessions
+
+Usage:
+  lazyai [backend] [query]
+  lazyai default [backend]
+  lazyai list
+  lazyai doctor
+  lazyai [options]
+
+Backends:
+  agy       Antigravity sessions (default)
+  claude    Claude Code sessions
+  codex     Codex sessions
+
+Commands:
+  lazyai                 Open the default backend
+  lazyai agy             Open AGY session picker
+  lazyai claude          Open Claude session picker
+  lazyai codex           Open Codex session picker
+  lazyai list            List available backends
+  lazyai default         Show the default backend
+  lazyai default <name>  Set the default backend
+  lazyai doctor          Check installation and configuration
+
+Session selection:
+  lazyai codex -l        List Codex sessions
+  lazyai claude 1        Resume the newest Claude session
+  lazyai agy keyword     Resume the newest matching AGY session
+
+Options:
+  -l, --list             List sessions without resuming
+  -h, --help             Show help
+  -V, --version          Show version
+
+Direct commands:
+  ags                    Same as: lazyai agy
+  ccs                    Same as: lazyai claude
+  cxs                    Same as: lazyai codex
+
+Examples:
+  lazyai
+  lazyai default codex
+  lazyai claude auth
+  lazyai codex -l
+```
+
+### Backend status and default
 
 ```bash
-curl -fsSL ccs.jimmyliao.net/install | bash
+lazyai list                 # installed backend CLIs and current default
+lazyai default              # print current default; fresh installs use agy
+lazyai default codex        # persist a new default
+lazyai doctor               # configuration path and backend checks
 ```
 
-<sub>Or straight from GitHub: `curl -fsSL https://raw.githubusercontent.com/jimmyliao/lazyaicli/main/install.sh | bash`</sub>
+The default is stored at `~/.config/lazyai/config.toml` on Linux and the platform user-config directory elsewhere. Set `LAZYAI_CONFIG` to override the path.
 
-**Manual:**
+### Session selection
+
+Every backend has the same interface:
 
 ```bash
-git clone https://github.com/jimmyliao/lazyaicli.git
-cd lazyaicli
-./install.sh
+lazyai agy                  # numbered interactive picker
+lazyai claude -l            # list without resuming
+lazyai codex 1              # resume newest session
+lazyai claude auth          # newest title or id match
 ```
 
-Either way, `install.sh` will:
-1. (one-liner mode) clone into `~/.local/share/lazyaicli`
-2. symlink `ccs`, `ags`, `cxs` into `~/.local/bin`
-3. detect your shell and source `ccs.sh` / `ags.sh` / `cxs.sh` from the right rc file (`~/.zshrc` / `~/.bashrc` / `~/.bash_profile`)
-4. check `python3` (required) and `fzf` (recommended); note which of `claude` / `agy` / `codex` are present
+Direct commands are equivalent:
 
-Then restart your shell (or `source` your rc file). Update later with `git -C ~/.local/share/lazyaicli pull` (or just re-run the one-liner).
+```bash
+ags                         # lazyai agy
+ccs                         # lazyai claude
+cxs                         # lazyai codex
+```
 
-> The sourced `ccs.sh` / `ags.sh` / `cxs.sh` shell functions are what let your shell **stay in the resumed session's directory after you exit** — a plain script can't change its parent shell's working directory. Sourcing is optional; the commands work standalone without it (minus the cd-persist).
+Session paths can be overridden for tests or custom installations with `AGY_HOME`, `CLAUDE_PROJECTS`, and `CODEX_HOME`.
 
----
+## Shell integration
 
-## Usage / 用法
+The installer sources small shell functions so the parent shell stays in the resumed session directory after the backend exits. The self-contained binary performs parsing and selection; the functions only perform the final `cd` and backend invocation.
 
-| Command | What it does |
-|---------|--------------|
-| `ccs` | interactive picker (fzf) → `cd` into session dir + resume |
-| `ccs -l` / `ccs ls` | list only (newest at bottom), no resume |
-| `ccs <N>` | resume by list number from `ccs -l` (`1` = newest) |
-| `ccs <keyword>` | resume the newest session whose title / last prompt matches |
-| `ccs <id-prefix>` | resume by session id prefix |
+## Install
 
-Environment:
-- `CLAUDE_PROJECTS` — override the projects dir (default `~/.claude/projects`)
-- `CCS_DRYRUN=1` — print the resume command instead of executing (testing)
+The shell installer downloads the release binary for the current OS and architecture, links `lazyai`, `lazyaicli`, `ags`, `ccs`, and `cxs` into `~/.local/bin`, and adds shell integration. The PowerShell installer installs `lazyai.exe`, command wrappers, and PowerShell profile integration under `%LOCALAPPDATA%\lazyai\bin`.
 
-### `ags` — Antigravity (`agy`) sessions
+Before installation it downloads `SHA256SUMS` and verifies the selected release binary. A missing checksum, mismatch, or unavailable checksum tool aborts before replacing the installed executable.
 
-Same interface, for Antigravity CLI conversations:
+```bash
+curl -fsSL https://raw.githubusercontent.com/jimmyliao/lazyaicli/main/install.sh | bash
+```
 
-| Command | What it does |
-|---------|--------------|
-| `ags` | interactive picker → `cd` + `agy --conversation <id>` |
-| `ags -l` | list only (newest at bottom) |
-| `ags <N>` / `<keyword>` / `<id>` | resume by number / preview match / id |
+Overrides: `LAZYAI_VERSION`, `LAZYAI_BINARY`, `LAZYAICLI_DIR`, and `LAZYAICLI_BIN_DIR`.
 
-Conversations live in `~/.gemini/antigravity-cli/conversations/<UUID>.db` (SQLite, current) or `.pb` (legacy protobuf). Directory comes from `cache/last_conversations.json`. Names are the first prompt for `.db` conversations; legacy `.pb` files show `[legacy]` + directory + time. Env: `AGY_HOME`, `AGS_DRYRUN=1`.
+`lazyaicli` remains as a compatibility alias for `lazyai`.
 
-### `cxs` — Codex sessions
+## Development and tests
 
-| Command | What it does |
-|---------|--------------|
-| `cxs` | interactive picker → `cd` + `codex resume <id>` |
-| `cxs -l` | list only (newest at bottom) |
-| `cxs <N>` / `<keyword>` / `<id>` | resume by number / name match / id |
+Go is a build dependency only; it is not a user runtime dependency.
 
-Sessions live in `~/.codex/sessions/YYYY/MM/DD/rollout-*-<UUID>.jsonl` (plain JSONL). Both id and `cwd` come straight from the `session_meta` line; the name is the first real user prompt. Env: `CODEX_HOME`, `CXS_DRYRUN=1`.
+```bash
+go build -o dist/lazyai ./cmd/lazyai
+tests/cli_contract.sh
+tests/backend_flows.sh
+tests/backend_detection.sh
+tests/edge_cases.sh
+tests/install_binary.sh
+```
 
-### Language / 語言
+Windows contract testing runs on `windows-latest` in CI:
 
-All three commands pick their language from your locale automatically — `zh*` → 中文, otherwise English. Force it with `LAZYAICLI_LANG=en` or `LAZYAICLI_LANG=zh`.
+```powershell
+go build -o dist/lazyai-windows-amd64.exe ./cmd/lazyai
+./tests/windows_contract.ps1
+```
 
----
-
-## How it works / 原理
-
-One engine, three thin adapters. The engine: scan a tool's session store → one row per session (`id` / name / `cwd` / mtime) → sort newest-last → pick (`fzf`, or a number/keyword) → `cd` into the session's directory → run that tool's resume command. **Listing is read-only** over files the CLI already writes, so there's no save step; only *resume* needs the CLI on `PATH`.
-
-What differs per tool:
-
-| Tool | Session store | Name from | `cd` target | Resume |
-|------|---------------|-----------|-------------|--------|
-| `ccs` | `~/.claude/projects/*/*.jsonl` | `custom-title` → `ai-title` → last prompt | **launch dir** = first `cwd` in the file | `claude --resume <id>` |
-| `ags` | `~/.gemini/antigravity-cli/conversations/<UUID>.db` (sqlite) / `.pb` (legacy) | first prompt from `steps` (`.db` only; `.pb` → `[legacy]`) | invert `cache/last_conversations.json` | `agy --conversation <id>` |
-| `cxs` | `~/.codex/sessions/**/rollout-*-<UUID>.jsonl` | first real user prompt | `cwd` from the `session_meta` line | `codex resume <id>` |
-
-> **Launch dir** matters for `ccs`: `claude --resume` resolves a session by *current dir → project dir*, so a session that `cd`-ed into a subdir mid-way would fail to resume from that subdir. `ccs` reads the file **head** for the original launch `cwd` (and the **tail** for title / last prompt) and `cd`s there.
-
----
-
-## Roadmap / 藍圖
-
-Today **Claude Code, Antigravity (`agy`), and Codex** all work — `ccs` / `ags` / `cxs`. Next up:
-
-- [ ] extract the shared engine — `bin/ccs` / `bin/ags` / `bin/cxs` still duplicate it (each should be just gather + resume)
-- [ ] decode legacy `agy` `.pb` conversations for names (they list as `[legacy]` today)
-- [ ] more backends (OpenCode, Cursor, Copilot CLI, Gemini CLI, …)
-- [ ] auto-detect installed tools + a top-level dispatcher
-- [ ] **v1.0: single Go binary** — no python/bash deps, native Windows, `brew install`
-
-Full detail in [ROADMAP.md](./ROADMAP.md). Contributions welcome — a new tool is **one adapter**: see [adapters/README.md](./adapters/README.md) and [CONTRIBUTING.md](./CONTRIBUTING.md).
-
----
+The backend flow suite uses deterministic fake sessions and fake backend executables. It verifies listing, matching, resume commands, direct aliases, and parent-shell directory behavior for all three backends.
 
 ## License
 
-[MIT](./LICENSE) © 2026 Jimmy Liao
+MIT © 2026 Jimmy Liao

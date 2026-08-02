@@ -1,96 +1,101 @@
 #!/usr/bin/env bash
-# lazyaicli installer
-#   - symlinks bin/ccs into ~/.local/bin
-#   - sources ccs.sh from the right shell rc file (cd-persist after resume)
-#   - checks deps: python3 (required), fzf (recommended)
 set -euo pipefail
 
-REPO_URL="${ACS_REPO_URL:-https://github.com/jimmyliao/lazyaicli.git}"
-INSTALL_DIR="${ACS_DIR:-$HOME/.local/share/lazyaicli}"
-BIN_DIR="${CCS_BIN_DIR:-$HOME/.local/bin}"
+INSTALL_DIR="${LAZYAICLI_DIR:-$HOME/.local/share/lazyai}"
+BIN_DIR="${LAZYAICLI_BIN_DIR:-$HOME/.local/bin}"
+VERSION="${LAZYAI_VERSION:-latest}"
 
-echo "lazyaicli installer"
+echo "lazyai installer"
+mkdir -p "$INSTALL_DIR" "$BIN_DIR"
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
 
-# Two modes:
-#  1) run from inside a clone (git clone … && ./install.sh)  -> use that checkout
-#  2) bootstrap (curl -fsSL …/install.sh | bash)             -> clone/update INSTALL_DIR
+platform() {
+  local os arch
+  case "$(uname -s)" in Linux) os=linux ;; Darwin) os=darwin ;; *) echo "unsupported OS: $(uname -s)" >&2; return 1 ;; esac
+  case "$(uname -m)" in x86_64|amd64) arch=amd64 ;; arm64|aarch64) arch=arm64 ;; *) echo "unsupported architecture: $(uname -m)" >&2; return 1 ;; esac
+  printf '%s-%s' "$os" "$arch"
+}
+
 SELF="${BASH_SOURCE[0]:-}"
-if [ -n "$SELF" ] && [ -f "$(dirname "$SELF")/bin/ccs" ]; then
-  REPO_DIR="$(cd "$(dirname "$SELF")" && pwd)"
-  echo "  using checkout: $REPO_DIR"
+expected="${LAZYAI_EXPECTED_SHA256:-}"
+if [ -n "${LAZYAI_BINARY:-}" ]; then
+  cp "$LAZYAI_BINARY" "$STAGE/lazyai"
+elif [ -n "$SELF" ] && [ -x "$(dirname "$SELF")/dist/lazyai" ]; then
+  cp "$(dirname "$SELF")/dist/lazyai" "$STAGE/lazyai"
 else
-  command -v git >/dev/null 2>&1 || { echo "✗ git is required to bootstrap. Aborting." >&2; exit 1; }
-  if [ -d "$INSTALL_DIR/.git" ]; then
-    echo "  updating $INSTALL_DIR"
-    git -C "$INSTALL_DIR" pull --ff-only --quiet || echo "  (pull skipped)"
+  asset="lazyai-$(platform)"
+  if [ "$VERSION" = latest ]; then
+    url="https://github.com/jimmyliao/lazyaicli/releases/latest/download/$asset"
   else
-    echo "  cloning $REPO_URL -> $INSTALL_DIR"
-    mkdir -p "$(dirname "$INSTALL_DIR")"
-    git clone --depth 1 --quiet "$REPO_URL" "$INSTALL_DIR"
+    url="https://github.com/jimmyliao/lazyaicli/releases/download/$VERSION/$asset"
   fi
-  REPO_DIR="$INSTALL_DIR"
+  echo "  downloading $url"
+  curl -fsSL "$url" -o "$STAGE/lazyai"
+  curl -fsSL "${url%/*}/SHA256SUMS" -o "$STAGE/SHA256SUMS"
+  while read -r sum filename; do
+    case "$filename" in ""|"$asset"|"*$asset") expected="$sum"; break ;; esac
+  done <"$STAGE/SHA256SUMS"
+  [ -n "$expected" ] || { echo "checksum for $asset not found" >&2; exit 1; }
 fi
 
-# --- deps -------------------------------------------------------------------
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "✗ python3 is required (sessions are parsed with python3). Aborting." >&2
-  exit 1
+if [ -n "$expected" ]; then
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual="$(sha256sum "$STAGE/lazyai")"; actual="${actual%% *}"
+  elif command -v shasum >/dev/null 2>&1; then
+    actual="$(shasum -a 256 "$STAGE/lazyai")"; actual="${actual%% *}"
+  else
+    echo "checksum verification needs sha256sum or shasum" >&2
+    exit 1
+  fi
+  [ "$actual" = "$expected" ] || { echo "checksum verification failed" >&2; exit 1; }
+  echo "✓ SHA-256 verified"
 fi
-echo "✓ python3: $(python3 --version 2>&1)"
-if command -v fzf >/dev/null 2>&1; then
-  echo "✓ fzf: $(fzf --version 2>&1 | head -1)"
+
+cp "$STAGE/lazyai" "$INSTALL_DIR/lazyai"
+chmod +x "$INSTALL_DIR/lazyai"
+
+for command_name in lazyai lazyaicli ccs ags cxs; do
+  ln -sf "$INSTALL_DIR/lazyai" "$BIN_DIR/$command_name"
+  echo "✓ linked $BIN_DIR/$command_name"
+done
+
+REPO_DIR=""
+if [ -n "$SELF" ] && [ -f "$(dirname "$SELF")/lazyaicli.sh" ]; then
+  REPO_DIR="$(cd "$(dirname "$SELF")" && pwd)"
 else
-  echo "⚠ fzf not found — interactive picker falls back to a numbered menu."
-  echo "    install: brew install fzf   |   apt install fzf"
+  REPO_DIR="$INSTALL_DIR/shell"
+  mkdir -p "$REPO_DIR"
+  ref=main; [ "$VERSION" != latest ] && ref="$VERSION"
+  for shell_file in lazyaicli.sh ccs.sh ags.sh cxs.sh; do
+    curl -fsSL "https://raw.githubusercontent.com/jimmyliao/lazyaicli/$ref/$shell_file" -o "$REPO_DIR/$shell_file"
+  done
 fi
 
-# --- which backends are present? (all 3 commands install either way) -------
-command -v claude >/dev/null 2>&1 && echo "✓ claude found — ccs (Claude Code sessions) ready" || echo "ℹ claude not found — ccs installed, works once Claude Code is present."
-command -v agy    >/dev/null 2>&1 && echo "✓ agy found — ags (Antigravity sessions) ready"     || echo "ℹ agy not found — ags installed, works once Antigravity CLI is present."
-command -v codex  >/dev/null 2>&1 && echo "✓ codex found — cxs (Codex sessions) ready"          || echo "ℹ codex not found — cxs installed, works once Codex CLI is present."
-
-# --- symlink engines onto PATH ---------------------------------------------
-mkdir -p "$BIN_DIR"
-ln -sf "$REPO_DIR/bin/ccs" "$BIN_DIR/ccs"
-echo "✓ linked $BIN_DIR/ccs -> $REPO_DIR/bin/ccs   (Claude Code sessions)"
-ln -sf "$REPO_DIR/bin/ags" "$BIN_DIR/ags"
-echo "✓ linked $BIN_DIR/ags -> $REPO_DIR/bin/ags   (Antigravity agy sessions)"
-ln -sf "$REPO_DIR/bin/cxs" "$BIN_DIR/cxs"
-echo "✓ linked $BIN_DIR/cxs -> $REPO_DIR/bin/cxs   (Codex sessions)"
-case ":$PATH:" in
-  *":$BIN_DIR:"*) ;;
-  *) echo "⚠ $BIN_DIR is not on PATH — add it, e.g.  export PATH=\"$BIN_DIR:\$PATH\"" ;;
+case "$(basename "${SHELL:-}")" in
+  zsh) RC="$HOME/.zshrc" ;;
+  bash) if [ "$(uname -s)" = Darwin ]; then RC="$HOME/.bash_profile"; else RC="$HOME/.bashrc"; fi ;;
+  *) RC="" ;;
 esac
 
-# --- source the shell function (cd-persist) --------------------------------
-detect_rc() {
-  case "$(basename "${SHELL:-}")" in
-    zsh)  echo "$HOME/.zshrc" ;;
-    bash) if [ "$(uname)" = "Darwin" ]; then echo "$HOME/.bash_profile"; else echo "$HOME/.bashrc"; fi ;;
-    *)    echo "" ;;
-  esac
-}
-RC="$(detect_rc)"
 if [ -n "$RC" ]; then
-  if grep -qF "$REPO_DIR/ccs.sh" "$RC" 2>/dev/null; then
-    echo "✓ ccs.sh already sourced in $RC"
-  else
-    printf '\n# lazyaicli — stay in the resumed session dir after exit\nsource "%s/ccs.sh"\n' "$REPO_DIR" >> "$RC"
-    echo "✓ added ccs.sh source line to $RC"
-  fi
-  for fn in ags cxs; do
-    if grep -qF "$REPO_DIR/$fn.sh" "$RC" 2>/dev/null; then
-      echo "✓ $fn.sh already sourced in $RC"
-    else
-      printf 'source "%s/%s.sh"\n' "$REPO_DIR" "$fn" >> "$RC"
-      echo "✓ added $fn.sh source line to $RC"
-    fi
-  done
-  echo ""
-  echo "Done. Restart your shell or:  source $RC"
+  mkdir -p "$(dirname "$RC")"
+  touch "$RC"
+  grep -qF "export PATH=\"$BIN_DIR:\$PATH\"" "$RC" 2>/dev/null || printf '\n# lazyai\nexport PATH="%s:$PATH"\n' "$BIN_DIR" >>"$RC"
+  marker="source \"$REPO_DIR/lazyaicli.sh\""
+  grep -qF "$marker" "$RC" 2>/dev/null || {
+    printf '%s\n' "$marker" >>"$RC"
+    printf 'source "%s/ccs.sh"\nsource "%s/ags.sh"\nsource "%s/cxs.sh"\n' "$REPO_DIR" "$REPO_DIR" "$REPO_DIR" >>"$RC"
+  }
+  echo "Done. Restart your shell or: source $RC"
 else
-  echo "⚠ Unknown shell ($SHELL). Add these lines to your shell rc manually:"
-  echo "    source \"$REPO_DIR/ccs.sh\""
-  echo "    source \"$REPO_DIR/ags.sh\""
-  echo "    source \"$REPO_DIR/cxs.sh\""
+  echo "Done. Add $BIN_DIR to PATH."
 fi
+
+echo ""
+echo "Next steps:"
+echo "  1. Restart Terminal (or source your shell rc file shown above)."
+echo "  2. Check installed AI backends:  lazyai doctor"
+echo "  3. Open your session picker:     lazyai"
+echo ""
+echo "No backend yet? Install AGY, Claude Code, or Codex, then run lazyai doctor again."
