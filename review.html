@@ -7,7 +7,7 @@
   <style>
     :root{color-scheme:dark;--bg:#07111f;--card:#0f1d30;--line:#29405f;--text:#e8f0fb;--muted:#9eb0c8;--cyan:#45d7ff;--green:#62e6a7}
     *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#153354 0,transparent 34%),var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,"Noto Sans TC",sans-serif}
-    main{width:min(1080px,92vw);margin:0 auto;padding:64px 0 80px}.eyebrow{color:var(--cyan);font-weight:700;letter-spacing:.12em;text-transform:uppercase}h1{font-size:clamp(2.7rem,8vw,6rem);line-height:.95;margin:.2em 0}.lead{max-width:760px;color:var(--muted);font-size:1.2rem}.status{display:inline-flex;gap:.55rem;align-items:center;padding:.45rem .8rem;border:1px solid var(--line);border-radius:999px}.dot{width:.65rem;height:.65rem;border-radius:50%;background:#ffc857}section{margin-top:56px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}.card{background:color-mix(in srgb,var(--card) 92%,transparent);border:1px solid var(--line);border-radius:16px;padding:22px}.card h3{margin:0 0 6px}.card p,li{color:var(--muted)}code{color:var(--green);background:#091522;padding:.16rem .38rem;border-radius:5px}.demo{margin:20px 0 34px}.demo img{display:block;width:100%;border:1px solid var(--line);border-radius:13px;background:#000}.checklist li{margin:.55rem 0}footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);color:var(--muted)}
+    main{width:min(1080px,92vw);margin:0 auto;padding:64px 0 80px}.eyebrow{color:var(--cyan);font-weight:700;letter-spacing:.12em;text-transform:uppercase}h1{font-size:clamp(2.7rem,8vw,6rem);line-height:.95;margin:.2em 0}.lead{max-width:760px;color:var(--muted);font-size:1.2rem}.status{display:inline-flex;gap:.55rem;align-items:center;padding:.45rem .8rem;border:1px solid var(--line);border-radius:999px}.dot{width:.65rem;height:.65rem;border-radius:50%;background:#ffc857}section{margin-top:56px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}.card{background:color-mix(in srgb,var(--card) 92%,transparent);border:1px solid var(--line);border-radius:16px;padding:22px}.card h3{margin:0 0 6px}.card p,li{color:var(--muted)}code{color:var(--green);background:#091522;padding:.16rem .38rem;border-radius:5px}.demo{margin:20px 0 34px}.demo img{display:block;width:100%;border:1px solid var(--line);border-radius:13px;background:#000}.terminal{background:#02070d;border:1px solid #314866;border-radius:14px;padding:18px 20px;white-space:pre-wrap;overflow:auto;color:#dbeafe;font:14px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace}.pass{color:var(--green);font-weight:700}.checklist li{margin:.55rem 0}footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);color:var(--muted)}
   </style>
 </head>
 <body><main>
@@ -32,10 +32,46 @@ ccs                       # 等同 lazyai claude
 cxs                       # 等同 lazyai codex</code></pre></div></section>
 
   <section><h2>三種 backend 操作證據</h2>
-    <div class="demo"><h3>AGY</h3><img src="demos/agy.svg" alt="lazyai AGY terminal flow"></div>
-    <div class="demo"><h3>Claude Code</h3><img src="demos/claude.svg" alt="lazyai Claude terminal flow"></div>
-    <div class="demo"><h3>Codex</h3><img src="demos/codex.svg" alt="lazyai Codex terminal flow"></div>
+    <div class="demo"><h3>AGY</h3><img src="docs/demos/agy.svg" alt="lazyai AGY terminal flow"></div>
+    <div class="demo"><h3>Claude Code</h3><img src="docs/demos/claude.svg" alt="lazyai Claude terminal flow"></div>
+    <div class="demo"><h3>Codex</h3><img src="docs/demos/codex.svg" alt="lazyai Codex terminal flow"></div>
   </section>
+
+  <section><h2>每個測試的實際結果</h2><pre class="terminal">$ tests/cli_contract.sh
+<span class="pass">cli contract tests passed</span>
+
+$ tests/backend_flows.sh
+AGY    → agy --conversation agy-123
+Claude → claude --resume claude-123
+Codex  → codex resume codex-123
+<span class="pass">backend flow tests passed</span>
+
+$ tests/backend_detection.sh
+0 / 1 / 2 / 3 installed backends
+explicit default / vanished default / sessions-only
+<span class="pass">backend detection tests passed</span>
+
+$ tests/edge_cases.sh
+ready / installed-empty / sessions-only / missing
+corrupt session / invalid config / missing cwd
+<span class="pass">edge case tests passed</span>
+
+$ tests/install_binary.sh
+binary symlinks / shell integration / SHA-256 mismatch rejection
+<span class="pass">binary installer tests passed</span>
+
+$ go test ./...
+<span class="pass">ok github.com/jimmyliao/lazyaicli/cmd/lazyai</span>
+
+$ go vet ./... &amp;&amp; gofmt &amp;&amp; git diff --check
+<span class="pass">all quality checks passed</span>
+
+$ ldd dist/lazyai
+<span class="pass">not a dynamic executable</span>
+
+$ lazyai agy -l  # real AGY store, read-only
+6 valid .db/.pb sessions; .db-wal/.db-shm ignored
+<span class="pass">real AGY integration passed</span></pre></section>
 
   <section><h2>已驗證</h2><div class="grid">
     <div class="card">CLI help／README contract</div><div class="card">三 backend fake-session flow</div>
@@ -52,5 +88,5 @@ cxs                       # 等同 lazyai codex</code></pre></div></section>
     <li>確認四個平台 release binary：Linux／macOS × amd64／arm64</li>
     <li>確認後才發布 GitHub Draft Release</li>
   </ul></section>
-  <footer>Generated for internal review · 2026-08-02 · commit 86f7eb8</footer>
+  <footer>Single review file · 2026-08-02 · code commit 86f7eb8</footer>
 </main></body></html>
