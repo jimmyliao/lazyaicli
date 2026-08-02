@@ -6,6 +6,8 @@ Build and run all tests:
 CGO_ENABLED=0 go build -o dist/lazyai ./cmd/lazyai
 tests/cli_contract.sh
 tests/backend_flows.sh
+tests/backend_detection.sh
+tests/edge_cases.sh
 tests/install_binary.sh
 ```
 

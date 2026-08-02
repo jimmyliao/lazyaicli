@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const version = "dev"
+var version = "dev"
 
 type backend struct{ name, direct, executable string }
 type session struct {
@@ -43,11 +43,10 @@ func run(args []string) error {
 	}
 	args = args[1:]
 	if len(args) == 0 {
-		name, err := readDefault()
+		b, err := effectiveBackend()
 		if err != nil {
 			return err
 		}
-		b, _ := findBackend(name)
 		return runBackend(b, nil)
 	}
 	switch args[0] {
@@ -65,10 +64,15 @@ func run(args []string) error {
 		return doctor()
 	}
 	b, ok := findBackend(args[0])
-	if !ok {
-		return fmt.Errorf("unknown backend or command: %s", args[0])
+	if ok {
+		return runBackend(b, args[1:])
 	}
-	return runBackend(b, args[1:])
+	// A query without an explicit backend uses the effective backend.
+	b, err := effectiveBackend()
+	if err != nil {
+		return err
+	}
+	return runBackend(b, args)
 }
 
 func printHelp(w io.Writer) {
@@ -146,29 +150,78 @@ func configPath() (string, error) {
 	}
 	return filepath.Join(d, "lazyai", "config.toml"), nil
 }
-func readDefault() (string, error) {
+func configuredDefault() (string, bool, error) {
 	p, err := configPath()
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	b, err := os.ReadFile(p)
 	if errors.Is(err, os.ErrNotExist) {
-		return "agy", nil
+		return "", false, nil
 	}
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	for _, line := range strings.Split(string(b), "\n") {
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) == 2 && strings.TrimSpace(parts[0]) == "default" {
 			v := strings.Trim(strings.TrimSpace(parts[1]), `"`)
 			if _, ok := findBackend(v); ok {
-				return v, nil
+				return v, true, nil
 			}
-			return "", fmt.Errorf("unknown backend in config: %s", v)
+			return "", true, fmt.Errorf("unknown backend in config: %s", v)
 		}
 	}
-	return "agy", nil
+	return "", true, errors.New("config does not contain a valid default")
+}
+func readDefault() (string, error) {
+	name, explicit, err := configuredDefault()
+	if err != nil {
+		return "", err
+	}
+	if !explicit {
+		return "agy", nil
+	}
+	return name, nil
+}
+func backendPath(b backend) (string, bool) {
+	p, err := exec.LookPath(b.executable)
+	return p, err == nil
+}
+func installedBackends() []backend {
+	var found []backend
+	for _, b := range backends {
+		if _, ok := backendPath(b); ok {
+			found = append(found, b)
+		}
+	}
+	return found
+}
+func effectiveBackend() (backend, error) {
+	name, explicit, err := configuredDefault()
+	if err != nil {
+		return backend{}, err
+	}
+	if explicit {
+		b, _ := findBackend(name)
+		if _, ok := backendPath(b); !ok {
+			return backend{}, fmt.Errorf("Configured default backend %q is unavailable.\n\n%s was not found on PATH.", b.name, b.executable)
+		}
+		return b, nil
+	}
+	found := installedBackends()
+	if len(found) == 0 {
+		return backend{}, errors.New("No supported AI coding CLI is installed.\n\n  agy       not found\n  claude    not found\n  codex     not found\n\nInstall one backend, then run lazyai again.\nRun lazyai doctor for details.")
+	}
+	if len(found) == 1 {
+		return found[0], nil
+	}
+	if b, ok := findBackend("agy"); ok {
+		if _, installed := backendPath(b); installed {
+			return b, nil
+		}
+	}
+	return backend{}, errors.New("Multiple backends are installed; specify one or set a default.\n\nRun: lazyai default <agy|claude|codex>")
 }
 func defaultCommand(args []string) error {
 	if len(args) == 0 {
@@ -185,6 +238,10 @@ func defaultCommand(args []string) error {
 	if !ok {
 		return fmt.Errorf("unknown backend: %s", args[0])
 	}
+	resolved, installed := backendPath(b)
+	if !installed {
+		return fmt.Errorf("Cannot set default to %s: %s is not installed or not on PATH.\n\nCurrent default was not changed.\nRun: lazyai doctor", b.name, b.executable)
+	}
 	p, err := configPath()
 	if err != nil {
 		return err
@@ -195,7 +252,7 @@ func defaultCommand(args []string) error {
 	if err := os.WriteFile(p, []byte(fmt.Sprintf("default = %q\n", b.name)), 0644); err != nil {
 		return err
 	}
-	fmt.Printf("Default backend: %s\n", b.name)
+	fmt.Printf("Default backend: %s\nCLI: %s\n", b.name, resolved)
 	return nil
 }
 
@@ -204,17 +261,19 @@ func listBackends() error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("Backend  Status           Sessions  Default  CLI")
 	for _, b := range backends {
-		_, e := exec.LookPath(b.executable)
-		state := "not found"
-		if e == nil {
-			state = "ready"
-		}
-		mark := " "
+		path, installed := backendPath(b)
+		count := sessionCount(b)
+		state := backendState(installed, count)
+		mark := "-"
 		if b.name == def {
-			mark = "*"
+			mark = "yes"
 		}
-		fmt.Printf("%s %-7s %s\n", mark, b.name, state)
+		if path == "" {
+			path = "-"
+		}
+		fmt.Printf("%-8s %-16s %-9d %-8s %s\n", b.name, state, count, mark, path)
 	}
 	return nil
 }
@@ -224,6 +283,27 @@ func doctor() error {
 		fmt.Println("config:", p)
 	}
 	return listBackends()
+}
+
+func sessionCount(b backend) int {
+	sessions, err := gather(b.name)
+	if err != nil {
+		return 0
+	}
+	return len(sessions)
+}
+
+func backendState(installed bool, sessions int) string {
+	switch {
+	case installed && sessions > 0:
+		return "ready"
+	case installed:
+		return "installed-empty"
+	case sessions > 0:
+		return "sessions-only"
+	default:
+		return "missing"
+	}
 }
 
 func runBackend(b backend, args []string) error {
@@ -324,7 +404,7 @@ func resume(b backend, s session) error {
 		return nil
 	}
 	if _, err := exec.LookPath(b.executable); err != nil {
-		return fmt.Errorf("%s not found on PATH", b.executable)
+		return fmt.Errorf("Cannot resume: %s is not installed or not on PATH.", b.executable)
 	}
 	if err := os.Chdir(s.cwd); err != nil {
 		return fmt.Errorf("session directory: %w", err)

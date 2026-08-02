@@ -25,6 +25,10 @@ jobs:
         run: tests/cli_contract.sh
       - name: Run all backend flows
         run: tests/backend_flows.sh
+      - name: Run backend detection matrix
+        run: tests/backend_detection.sh
+      - name: Run edge cases
+        run: tests/edge_cases.sh
       - name: Run binary installer tests
         run: tests/install_binary.sh
       - name: Check formatting

@@ -7,6 +7,8 @@ VERSION="${LAZYAI_VERSION:-latest}"
 
 echo "lazyai installer"
 mkdir -p "$INSTALL_DIR" "$BIN_DIR"
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
 
 platform() {
   local os arch
@@ -16,10 +18,11 @@ platform() {
 }
 
 SELF="${BASH_SOURCE[0]:-}"
+expected="${LAZYAI_EXPECTED_SHA256:-}"
 if [ -n "${LAZYAI_BINARY:-}" ]; then
-  cp "$LAZYAI_BINARY" "$INSTALL_DIR/lazyai"
+  cp "$LAZYAI_BINARY" "$STAGE/lazyai"
 elif [ -n "$SELF" ] && [ -x "$(dirname "$SELF")/dist/lazyai" ]; then
-  cp "$(dirname "$SELF")/dist/lazyai" "$INSTALL_DIR/lazyai"
+  cp "$(dirname "$SELF")/dist/lazyai" "$STAGE/lazyai"
 else
   asset="lazyai-$(platform)"
   if [ "$VERSION" = latest ]; then
@@ -28,8 +31,28 @@ else
     url="https://github.com/jimmyliao/lazyaicli/releases/download/$VERSION/$asset"
   fi
   echo "  downloading $url"
-  curl -fsSL "$url" -o "$INSTALL_DIR/lazyai"
+  curl -fsSL "$url" -o "$STAGE/lazyai"
+  curl -fsSL "${url%/*}/SHA256SUMS" -o "$STAGE/SHA256SUMS"
+  while read -r sum filename; do
+    case "$filename" in ""|"$asset"|"*$asset") expected="$sum"; break ;; esac
+  done <"$STAGE/SHA256SUMS"
+  [ -n "$expected" ] || { echo "checksum for $asset not found" >&2; exit 1; }
 fi
+
+if [ -n "$expected" ]; then
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual="$(sha256sum "$STAGE/lazyai")"; actual="${actual%% *}"
+  elif command -v shasum >/dev/null 2>&1; then
+    actual="$(shasum -a 256 "$STAGE/lazyai")"; actual="${actual%% *}"
+  else
+    echo "checksum verification needs sha256sum or shasum" >&2
+    exit 1
+  fi
+  [ "$actual" = "$expected" ] || { echo "checksum verification failed" >&2; exit 1; }
+  echo "✓ SHA-256 verified"
+fi
+
+cp "$STAGE/lazyai" "$INSTALL_DIR/lazyai"
 chmod +x "$INSTALL_DIR/lazyai"
 
 for command_name in lazyai lazyaicli ccs ags cxs; do

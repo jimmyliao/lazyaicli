@@ -28,7 +28,10 @@ do
 done
 
 export HOME="$TMP/home"
-mkdir -p "$HOME"
+mkdir -p "$HOME" "$TMP/bin"
+printf '#!/bin/sh\nexit 0\n' >"$TMP/bin/codex"
+chmod +x "$TMP/bin/codex"
+export PATH="$TMP/bin:/usr/bin:/bin"
 
 [ "$($BIN default)" = 'agy' ] || fail 'fresh default must be agy'
 $BIN default codex | grep -F 'Default backend: codex' >/dev/null
