@@ -395,16 +395,16 @@ func pickSession(ss []session) (*session, error) {
 	return matchSession(ss, line), nil
 }
 func resume(b backend, s session) error {
-	if os.Getenv("LAZYAI_EMIT") == "1" {
-		fmt.Printf("%s\t%s\t%s\n", b.name, s.cwd, s.id)
-		return nil
-	}
 	if os.Getenv("LAZYAI_DRYRUN") == "1" || os.Getenv(strings.ToUpper(b.direct)+"_DRYRUN") == "1" {
 		fmt.Printf("→ cd %s && %s\n", s.cwd, resumeArgs(b, s.id))
 		return nil
 	}
 	if _, err := exec.LookPath(b.executable); err != nil {
 		return fmt.Errorf("Cannot resume: %s is not installed or not on PATH.", b.executable)
+	}
+	if os.Getenv("LAZYAI_EMIT") == "1" {
+		fmt.Printf("%s\t%s\t%s\n", b.name, s.cwd, s.id)
+		return nil
 	}
 	if err := os.Chdir(s.cwd); err != nil {
 		return fmt.Errorf("session directory: %w", err)

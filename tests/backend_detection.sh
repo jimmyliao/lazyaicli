@@ -77,4 +77,14 @@ expect_output '[Codex session]' env PATH="$TMP/empty-bin:$base_path" "$BIN" code
 expect_failure 'Cannot resume: codex is not installed or not on PATH.' \
   env PATH="$TMP/empty-bin:$base_path" "$BIN" codex 1
 
+# Sourced shell integration must perform the same pre-resume check instead of
+# falling through to a generic `command not found` error.
+ln -s "$BIN" "$TMP/empty-bin/lazyai"
+if PATH="$TMP/empty-bin:$base_path" bash -c \
+  'source "$1/lazyaicli.sh"; source "$1/cxs.sh"; cxs 1' _ "$ROOT" \
+  >"$TMP/sourced-missing" 2>&1; then
+  echo 'sourced missing backend unexpectedly succeeded' >&2; exit 1
+fi
+grep -F 'Cannot resume: codex is not installed or not on PATH.' "$TMP/sourced-missing" >/dev/null
+
 echo 'backend detection tests passed'
