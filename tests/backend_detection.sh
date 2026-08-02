@@ -21,6 +21,7 @@ printf '{"%s":"agy-1"}\n' "$WORK" >"$TMP/agy/cache/last_conversations.json"
 
 export HOME="$TMP/home" CLAUDE_PROJECTS="$TMP/claude" CODEX_HOME="$TMP/codex" AGY_HOME="$TMP/agy"
 export XDG_CONFIG_HOME="$HOME/.config"
+export LAZYAI_CONFIG="$HOME/.config/lazyai/config.toml"
 base_path="/usr/bin:/bin"
 
 reset_config() { rm -f "$HOME/.config/lazyai/config.toml"; }

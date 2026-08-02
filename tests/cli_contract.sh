@@ -29,6 +29,7 @@ done
 
 export HOME="$TMP/home"
 export XDG_CONFIG_HOME="$HOME/.config"
+export LAZYAI_CONFIG="$HOME/.config/lazyai/config.toml"
 mkdir -p "$HOME" "$TMP/bin"
 printf '#!/bin/sh\nexit 0\n' >"$TMP/bin/codex"
 chmod +x "$TMP/bin/codex"
