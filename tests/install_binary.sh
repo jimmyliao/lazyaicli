@@ -8,8 +8,9 @@ for name in lazyai lazyaicli ccs ags cxs; do
   [ -L "$TMP/bin/$name" ]
   "$TMP/bin/$name" --help >/dev/null
 done
-grep -F "$ROOT/lazyaicli.sh" "$TMP/home/.bashrc" >/dev/null
-if grep -Eiq 'python|uv|jq|fzf' "$TMP/home/.bashrc"; then
+if [ "$(uname -s)" = Darwin ]; then rc="$TMP/home/.bash_profile"; else rc="$TMP/home/.bashrc"; fi
+grep -F "$ROOT/lazyaicli.sh" "$rc" >/dev/null
+if grep -Eiq 'python|uv|jq|fzf' "$rc"; then
   echo 'unexpected runtime dependency in shell setup' >&2; exit 1
 fi
 
