@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+# ops — Oh My Pi (omp) Session browser & resume
+# List your local omp sessions (title / directory / time); pick one to resume.
+#
+#   ops              # interactive pick (fzf, else number menu) -> cd cwd && omp --resume <id>
+#   ops -l           # list only (newest at the bottom, number 1 = newest)
+#   ops <id|keyword> # resume by id prefix, or title/prompt keyword
+#   ops <N>          # resume by list number (1 = newest)
+#
+# Sessions are persisted by omp at ~/.omp/agent/sessions/<encoded-cwd>/*.jsonl (plain JSONL).
+# Language: auto (zh if your locale is zh*, else en). Override with LAZYAICLI_LANG=en|zh.
+set -euo pipefail
+
+OMP_DIR="${OMP_DIR:-$HOME/.omp/agent}"
+OMP_SESSIONS="${OMP_SESSIONS:-$OMP_DIR/sessions}"
+
+# --- i18n: pick language once, then t <en> <zh> ----------------------------
+case "${LAZYAICLI_LANG:-${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}}" in
+  zh*) _LANG=zh ;;
+  *)   _LANG=en ;;
+esac
+t() { if [ "$_LANG" = zh ]; then printf '%s' "$2"; else printf '%s' "$1"; fi; }
+
+gather() {
+  python3 - "$OMP_SESSIONS" <<'PY'
+import os, sys, json, glob, time
+
+sess_dir = sys.argv[1]
+now = time.time()
+
+def ago(mt):
+    s = now - mt
+    if s < 90: return f"{int(s)}s ago"
+    if s < 5400: return f"{int(s/60)}m ago"
+    if s < 172800: return f"{int(s/3600)}h ago"
+    return f"{int(s/86400)}d ago"
+
+def clean_text(txt):
+    if "<system-reminder>" in txt and "</system-reminder>" in txt:
+        parts = txt.split("</system-reminder>", 1)
+        txt = parts[1].strip()
+    return " ".join(txt.split())
+
+for f in glob.glob(os.path.join(sess_dir, "**", "*.jsonl"), recursive=True):
+    try:
+        mt = os.path.getmtime(f)
+        size = os.path.getsize(f)
+    except OSError:
+        continue
+    sid = cwd = title = first_user = last_user = None
+    try:
+        with open(f, "rb") as fh:
+            if size > 262144:  # big file: head 16KB + tail 256KB
+                head = fh.read(16384).decode("utf-8", "ignore")
+                fh.seek(-262144, 2)
+                fh.readline()
+                tail = fh.read().decode("utf-8", "ignore")
+                chunks = head.splitlines() + tail.splitlines()
+            else:
+                chunks = fh.read().decode("utf-8", "ignore").splitlines()
+    except OSError:
+        continue
+
+    for line in chunks:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+        except Exception:
+            continue
+        t = d.get("type")
+        if t == "title" and d.get("title"):
+            title = d.get("title").strip()
+        elif t == "session":
+            sid = d.get("id") or sid
+            cwd = d.get("cwd") or cwd
+            if d.get("title"):
+                title = d.get("title").strip()
+        elif t == "message":
+            msg = d.get("message", {})
+            if msg.get("role") == "user":
+                content = msg.get("content")
+                user_text = ""
+                if isinstance(content, str):
+                    user_text = content
+                elif isinstance(content, list):
+                    for part in content:
+                        if isinstance(part, dict) and part.get("type") == "text":
+                            user_text += part.get("text", "") + " "
+                        elif isinstance(part, str):
+                            user_text += part + " "
+                user_text = clean_text(user_text)
+                if user_text:
+                    if first_user is None:
+                        first_user = user_text
+                    last_user = user_text
+
+    if not sid:
+        base = os.path.basename(f)
+        if "_" in base:
+            sid = base.split("_", 1)[1][:-6]
+        else:
+            sid = base[:-6]
+
+    display_name = title or first_user or "(untitled)"
+    display_name = display_name[:70]
+    short_cwd = (cwd or "(unknown cwd)").replace(os.path.expanduser("~"), "~")
+    lastp = last_user or ""
+    disp = f"{ago(mt):>8}  [{display_name}]  {short_cwd}"
+    if lastp and lastp != display_name:
+        disp += f"  ↳ {lastp[:90]}"
+
+    # TSV: sid \t cwd \t mtime \t title \t lastprompt \t displayline
+    print("\t".join([sid, cwd or "", f"{mt:.0f}", display_name, lastp, disp]))
+PY
+}
+
+resume() {
+  local id="$1" cwd="$2"
+  # DRYRUN: just print the command (no omp needed) — preview only.
+  if [ "${OPS_DRYRUN:-}" = "1" ]; then
+    echo "→ cd ${cwd:-\$HOME} && omp --resume $id"
+    return 0
+  fi
+  # Resuming needs omp on PATH (listing does not).
+  if ! command -v omp >/dev/null 2>&1; then
+    echo "$(t "✗ 'omp' not found — Oh My Pi isn't installed or not on PATH. Install it to resume." \
+             "✗ 找不到 'omp' 指令——未安裝 Oh My Pi 或不在 PATH。安裝後即可還原。")" >&2
+    echo "  https://github.com/oh-my-pi/omp" >&2
+    exit 1
+  fi
+  # OPS_EMIT=1: just print cwd<TAB>id for the sourced ops() function to cd + resume in the current shell.
+  if [ "${OPS_EMIT:-}" = "1" ]; then
+    printf '%s\t%s\n' "$cwd" "$id"
+    return 0
+  fi
+  echo "→ cd ${cwd:-\$HOME} && omp --resume $id"
+  if [ -n "$cwd" ] && cd "$cwd" 2>/dev/null; then
+    :
+  else
+    [ -n "$cwd" ] && echo "$(t "⚠ directory not found: ${cwd} — resuming from \$HOME instead" \
+                              "⚠ 目錄不存在：${cwd}，改在 \$HOME 還原")" >&2
+    cd "$HOME"
+  fi
+  exec omp --resume "$id"
+}
+
+main() {
+  local tsv
+  tsv="$(gather | sort -t$'\t' -k3,3nr)"   # newest first
+  if [ -z "$tsv" ]; then
+    if [ ! -d "$OMP_SESSIONS" ]; then
+      echo "$(t "No Oh My Pi sessions dir (${OMP_SESSIONS}) — is omp installed and used at least once?" \
+               "找不到 Oh My Pi session 目錄（${OMP_SESSIONS}）——裝了 omp 並用過至少一次嗎？")" >&2
+    else
+      echo "$(t "No Oh My Pi sessions yet (${OMP_SESSIONS})." \
+               "目前沒有任何 Oh My Pi session（${OMP_SESSIONS}）。")" >&2
+    fi
+    exit 1
+  fi
+
+  # List only (newest at the bottom, next to the prompt; number 1 = newest).
+  if [ "${1:-}" = "-l" ] || [ "${1:-}" = "--list" ] || [ "${1:-}" = "ls" ] || [ "${1:-}" = "list" ]; then
+    printf '%s\n' "$tsv" | awk -F'\t' '{n[NR]=$6} END{for(i=NR;i>=1;i--) printf "%2d) %s\n", i, n[i]}'
+    exit 0
+  fi
+
+  # Direct argument: a pure number = list index (1 = newest, matches `ops -l`); otherwise id prefix / keyword.
+  if [ -n "${1:-}" ]; then
+    local match
+    if printf '%s' "$1" | grep -qE '^[0-9]+$'; then
+      match="$(printf '%s\n' "$tsv" | sed -n "${1}p")"
+      if [ -z "$match" ]; then
+        local total; total="$(printf '%s\n' "$tsv" | grep -c .)"
+        echo "$(t "No session #${1} (${total} total)" "沒有第 ${1} 個 session（共 ${total} 個）")" >&2
+        exit 1
+      fi
+    else
+      match="$(printf '%s\n' "$tsv" | grep -i -m1 -- "$1" || true)"
+      if [ -z "$match" ]; then
+        echo "$(t "No session matching \"${1}\"" "沒有符合「${1}」的 session")" >&2
+        exit 1
+      fi
+    fi
+    resume "$(printf '%s' "$match" | cut -f1)" "$(printf '%s' "$match" | cut -f2)"
+    exit 0
+  fi
+
+  # Interactive pick.
+  if command -v fzf >/dev/null 2>&1; then
+    local pick
+    pick="$(printf '%s\n' "$tsv" \
+      | fzf --delimiter='\t' --with-nth=6 --height=90% --reverse \
+            --prompt='resume> ' --header="$(t "↑↓ choose · Enter resume · Esc cancel" "↑↓ 選 session · Enter 還原 · Esc 取消")")" || exit 0
+    [ -z "$pick" ] && exit 0
+    resume "$(printf '%s' "$pick" | cut -f1)" "$(printf '%s' "$pick" | cut -f2)"
+  else
+    printf '%s\n' "$tsv" | awk -F'\t' '{printf "%2d) %s\n", NR, $6}'
+    printf '%s' "$(t "Pick # (Enter to cancel): " "選擇 #（Enter 取消）：")"
+    read -r n
+    [ -z "$n" ] && exit 0
+    local line
+    line="$(printf '%s\n' "$tsv" | sed -n "${n}p")"
+    [ -z "$line" ] && { echo "$(t "invalid choice" "無效選擇")" >&2; exit 1; }
+    resume "$(printf '%s' "$line" | cut -f1)" "$(printf '%s' "$line" | cut -f2)"
+  fi
+}
+
+main "$@"

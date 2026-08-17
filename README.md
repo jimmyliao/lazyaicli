@@ -6,11 +6,12 @@
 
 **繁體中文 | English** · MIT License
 
-**lazyaicli** is the project; it ships three commands, one per tool, sharing one engine. Each name is just `<tool> Sessions`:
+**lazyaicli** is the project; it ships four commands, one per tool, sharing one engine. Each name is just `<tool> Sessions`:
 
 - **`ccs`** — **C**laude **C**ode **S**essions (`~/.claude/projects`)
 - **`ags`** — **A**nti**g**ravity **S**essions · `agy` (`~/.gemini/antigravity-cli/conversations`)
 - **`cxs`** — Code**x** **S**essions (`~/.codex/sessions`)
+- **`ops`** — **O**h My **P**i **S**essions (`~/.omp/agent/sessions`)
 
 Same UX everywhere — list → pick → `cd` → resume. Adding a tool is one adapter.
 
@@ -44,7 +45,7 @@ $ ccs auth       # resume the session matching "auth"
 
 ## Requirements / 需求
 
-- **At least one supported CLI** — Claude Code, Antigravity (`agy`), and/or Codex. Each is optional; you only need the ones you actually use. Listing only reads their session files; resuming needs that CLI on `PATH`.
+- **At least one supported CLI** — Claude Code, Antigravity (`agy`), Codex, and/or Oh My Pi (`omp`). Each is optional; you only need the ones you actually use. Listing only reads their session files; resuming needs that CLI on `PATH`.
 - **python3** (parsing) — required
 - **bash** — the engine runs under bash
 - **fzf** — optional, enables the interactive picker (falls back to a numbered menu)
@@ -74,13 +75,13 @@ cd lazyaicli
 
 Either way, `install.sh` will:
 1. (one-liner mode) clone into `~/.local/share/lazyaicli`
-2. symlink `ccs`, `ags`, `cxs` into `~/.local/bin`
-3. detect your shell and source `ccs.sh` / `ags.sh` / `cxs.sh` from the right rc file (`~/.zshrc` / `~/.bashrc` / `~/.bash_profile`)
-4. check `python3` (required) and `fzf` (recommended); note which of `claude` / `agy` / `codex` are present
+2. symlink `ccs`, `ags`, `cxs`, `ops` into `~/.local/bin`
+3. detect your shell and source `ccs.sh` / `ags.sh` / `cxs.sh` / `ops.sh` from the right rc file (`~/.zshrc` / `~/.bashrc` / `~/.bash_profile`)
+4. check `python3` (required) and `fzf` (recommended); note which of `claude` / `agy` / `codex` / `omp` are present
 
 Then restart your shell (or `source` your rc file). Update later with `git -C ~/.local/share/lazyaicli pull` (or just re-run the one-liner).
 
-> The sourced `ccs.sh` / `ags.sh` / `cxs.sh` shell functions are what let your shell **stay in the resumed session's directory after you exit** — a plain script can't change its parent shell's working directory. Sourcing is optional; the commands work standalone without it (minus the cd-persist).
+> The sourced `ccs.sh` / `ags.sh` / `cxs.sh` / `ops.sh` shell functions are what let your shell **stay in the resumed session's directory after you exit** — a plain script can't change its parent shell's working directory. Sourcing is optional; the commands work standalone without it (minus the cd-persist).
 
 ---
 
@@ -120,6 +121,16 @@ Conversations live in `~/.gemini/antigravity-cli/conversations/<UUID>.db` (SQLit
 
 Sessions live in `~/.codex/sessions/YYYY/MM/DD/rollout-*-<UUID>.jsonl` (plain JSONL). Both id and `cwd` come straight from the `session_meta` line; the name is the first real user prompt. Env: `CODEX_HOME`, `CXS_DRYRUN=1`.
 
+
+### `ops` — Oh My Pi (`omp`) sessions
+
+| Command | What it does |
+|---------|--------------|
+| `ops` | interactive picker → `cd` + `omp --resume <id>` |
+| `ops -l` | list only (newest at bottom) |
+| `ops <N>` / `<keyword>` / `<id>` | resume by number / title match / id |
+
+Sessions live in `~/.omp/agent/sessions/<encoded-cwd>/*.jsonl` (plain JSONL). Title comes from the 256B slot / session header (set via `/name` or `/title`), with fallback to the first user prompt. Env: `OMP_DIR`, `OMP_SESSIONS`, `OPS_DRYRUN=1`.
 ### Language / 語言
 
 All three commands pick their language from your locale automatically — `zh*` → 中文, otherwise English. Force it with `LAZYAICLI_LANG=en` or `LAZYAICLI_LANG=zh`.
@@ -128,7 +139,7 @@ All three commands pick their language from your locale automatically — `zh*` 
 
 ## How it works / 原理
 
-One engine, three thin adapters. The engine: scan a tool's session store → one row per session (`id` / name / `cwd` / mtime) → sort newest-last → pick (`fzf`, or a number/keyword) → `cd` into the session's directory → run that tool's resume command. **Listing is read-only** over files the CLI already writes, so there's no save step; only *resume* needs the CLI on `PATH`.
+One engine, four thin adapters. The engine: scan a tool's session store → one row per session (`id` / name / `cwd` / mtime) → sort newest-last → pick (`fzf`, or a number/keyword) → `cd` into the session's directory → run that tool's resume command. **Listing is read-only** over files the CLI already writes, so there's no save step; only *resume* needs the CLI on `PATH`.
 
 What differs per tool:
 
@@ -137,6 +148,7 @@ What differs per tool:
 | `ccs` | `~/.claude/projects/*/*.jsonl` | `custom-title` → `ai-title` → last prompt | **launch dir** = first `cwd` in the file | `claude --resume <id>` |
 | `ags` | `~/.gemini/antigravity-cli/conversations/<UUID>.db` (sqlite) / `.pb` (legacy) | first prompt from `steps` (`.db` only; `.pb` → `[legacy]`) | invert `cache/last_conversations.json` | `agy --conversation <id>` |
 | `cxs` | `~/.codex/sessions/**/rollout-*-<UUID>.jsonl` | first real user prompt | `cwd` from the `session_meta` line | `codex resume <id>` |
+| `ops` | `~/.omp/agent/sessions/<enc-cwd>/*.jsonl` | title slot → header title → first user prompt | `cwd` from header | `omp --resume <id>` |
 
 > **Launch dir** matters for `ccs`: `claude --resume` resolves a session by *current dir → project dir*, so a session that `cd`-ed into a subdir mid-way would fail to resume from that subdir. `ccs` reads the file **head** for the original launch `cwd` (and the **tail** for title / last prompt) and `cd`s there.
 
@@ -144,9 +156,9 @@ What differs per tool:
 
 ## Roadmap / 藍圖
 
-Today **Claude Code, Antigravity (`agy`), and Codex** all work — `ccs` / `ags` / `cxs`. Next up:
+Today **Claude Code, Antigravity (`agy`), Codex, and Oh My Pi (`omp`)** all work — `ccs` / `ags` / `cxs` / `ops`. Next up:
 
-- [ ] extract the shared engine — `bin/ccs` / `bin/ags` / `bin/cxs` still duplicate it (each should be just gather + resume)
+- [ ] extract the shared engine — `bin/ccs` / `bin/ags` / `bin/cxs` / `bin/ops` still duplicate it (each should be just gather + resume)
 - [ ] decode legacy `agy` `.pb` conversations for names (they list as `[legacy]` today)
 - [ ] more backends (OpenCode, Cursor, Copilot CLI, Gemini CLI, …)
 - [ ] auto-detect installed tools + a top-level dispatcher

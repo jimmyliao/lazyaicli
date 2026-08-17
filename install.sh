@@ -44,10 +44,11 @@ else
   echo "    install: brew install fzf   |   apt install fzf"
 fi
 
-# --- which backends are present? (all 3 commands install either way) -------
+# --- which backends are present? (all 4 commands install either way) -------
 command -v claude >/dev/null 2>&1 && echo "✓ claude found — ccs (Claude Code sessions) ready" || echo "ℹ claude not found — ccs installed, works once Claude Code is present."
 command -v agy    >/dev/null 2>&1 && echo "✓ agy found — ags (Antigravity sessions) ready"     || echo "ℹ agy not found — ags installed, works once Antigravity CLI is present."
 command -v codex  >/dev/null 2>&1 && echo "✓ codex found — cxs (Codex sessions) ready"          || echo "ℹ codex not found — cxs installed, works once Codex CLI is present."
+command -v omp    >/dev/null 2>&1 && echo "✓ omp found — ops (Oh My Pi sessions) ready"        || echo "ℹ omp not found — ops installed, works once Oh My Pi is present."
 
 # --- symlink engines onto PATH ---------------------------------------------
 mkdir -p "$BIN_DIR"
@@ -57,6 +58,8 @@ ln -sf "$REPO_DIR/bin/ags" "$BIN_DIR/ags"
 echo "✓ linked $BIN_DIR/ags -> $REPO_DIR/bin/ags   (Antigravity agy sessions)"
 ln -sf "$REPO_DIR/bin/cxs" "$BIN_DIR/cxs"
 echo "✓ linked $BIN_DIR/cxs -> $REPO_DIR/bin/cxs   (Codex sessions)"
+ln -sf "$REPO_DIR/bin/ops" "$BIN_DIR/ops"
+echo "✓ linked $BIN_DIR/ops -> $REPO_DIR/bin/ops   (Oh My Pi sessions)"
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;
   *) echo "⚠ $BIN_DIR is not on PATH — add it, e.g.  export PATH=\"$BIN_DIR:\$PATH\"" ;;
@@ -78,7 +81,7 @@ if [ -n "$RC" ]; then
     printf '\n# lazyaicli — stay in the resumed session dir after exit\nsource "%s/ccs.sh"\n' "$REPO_DIR" >> "$RC"
     echo "✓ added ccs.sh source line to $RC"
   fi
-  for fn in ags cxs; do
+  for fn in ags cxs ops; do
     if grep -qF "$REPO_DIR/$fn.sh" "$RC" 2>/dev/null; then
       echo "✓ $fn.sh already sourced in $RC"
     else
@@ -93,4 +96,5 @@ else
   echo "    source \"$REPO_DIR/ccs.sh\""
   echo "    source \"$REPO_DIR/ags.sh\""
   echo "    source \"$REPO_DIR/cxs.sh\""
+    source "$REPO_DIR/ops.sh"
 fi
