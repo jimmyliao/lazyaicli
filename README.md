@@ -130,7 +130,7 @@ Sessions live in `~/.codex/sessions/YYYY/MM/DD/rollout-*-<UUID>.jsonl` (plain JS
 | `ops -l` | list only (newest at bottom) |
 | `ops <N>` / `<keyword>` / `<id>` | resume by number / title match / id |
 
-Sessions live in `~/.omp/agent/sessions/<encoded-cwd>/*.jsonl` (plain JSONL). Title comes from the 256B slot / session header (set via `/name` or `/title`), with fallback to the first user prompt. Env: `OMP_DIR`, `OMP_SESSIONS`, `OPS_DRYRUN=1`.
+Sessions live in `~/.omp/agent/sessions/<encoded-cwd>/*.jsonl` (plain JSONL). Title comes from the 256B slot / session header (set via `/name` or `/title`), with fallback to the first user prompt. Env: `OMP_DIR`, `OMP_SESSIONS`, `OPS_DRYRUN=1`, `OPS_OMP_BIN` (binary to exec on resume, default `omp`; e.g. `OPS_OMP_BIN=omp-pet ops <id>` resumes the same session store through the PetCircle auth-broker instead of your default Anthropic credential).
 ### Language / 語言
 
 All three commands pick their language from your locale automatically — `zh*` → 中文, otherwise English. Force it with `LAZYAICLI_LANG=en` or `LAZYAICLI_LANG=zh`.

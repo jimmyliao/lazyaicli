@@ -7,12 +7,20 @@
 #   ops <id|keyword> # resume by id prefix, or title/prompt keyword
 #   ops <N>          # resume by list number (1 = newest)
 #
+# OPS_OMP_BIN=omp-pet ops <id>   # resume via a different binary (e.g. omp-pet
+#                                # routes Anthropic OAuth through the PetCircle
+#                                # auth-broker; same session store either way).
 # Sessions are persisted by omp at ~/.omp/agent/sessions/<encoded-cwd>/*.jsonl (plain JSONL).
 # Language: auto (zh if your locale is zh*, else en). Override with LAZYAICLI_LANG=en|zh.
+#
 set -euo pipefail
 
 OMP_DIR="${OMP_DIR:-$HOME/.omp/agent}"
 OMP_SESSIONS="${OMP_SESSIONS:-$OMP_DIR/sessions}"
+# OPS_OMP_BIN: which binary to exec on resume(預設 omp;設成 omp-pet 可改走
+# PetCircle auth-broker 路由的 Anthropic 憑證，session store 不變，見
+# ~/.dotagents/scripts/omp-pet)。
+OMP_BIN="${OPS_OMP_BIN:-omp}"
 
 # --- i18n: pick language once, then t <en> <zh> ----------------------------
 case "${LAZYAICLI_LANG:-${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}}" in
@@ -120,13 +128,13 @@ resume() {
   local id="$1" cwd="$2"
   # DRYRUN: just print the command (no omp needed) — preview only.
   if [ "${OPS_DRYRUN:-}" = "1" ]; then
-    echo "→ cd ${cwd:-\$HOME} && omp --resume $id"
+    echo "→ cd ${cwd:-\$HOME} && $OMP_BIN --resume $id"
     return 0
   fi
-  # Resuming needs omp on PATH (listing does not).
-  if ! command -v omp >/dev/null 2>&1; then
-    echo "$(t "✗ 'omp' not found — Oh My Pi isn't installed or not on PATH. Install it to resume." \
-             "✗ 找不到 'omp' 指令——未安裝 Oh My Pi 或不在 PATH。安裝後即可還原。")" >&2
+  # Resuming needs $OMP_BIN on PATH (listing does not).
+  if ! command -v "$OMP_BIN" >/dev/null 2>&1; then
+    echo "$(t "✗ '$OMP_BIN' not found — Oh My Pi isn't installed or not on PATH. Install it to resume." \
+             "✗ 找不到 '$OMP_BIN' 指令——未安裝 Oh My Pi 或不在 PATH。安裝後即可還原。")" >&2
     echo "  https://github.com/oh-my-pi/omp" >&2
     exit 1
   fi
@@ -135,7 +143,7 @@ resume() {
     printf '%s\t%s\n' "$cwd" "$id"
     return 0
   fi
-  echo "→ cd ${cwd:-\$HOME} && omp --resume $id"
+  echo "→ cd ${cwd:-\$HOME} && $OMP_BIN --resume $id"
   if [ -n "$cwd" ] && cd "$cwd" 2>/dev/null; then
     :
   else
@@ -143,7 +151,7 @@ resume() {
                               "⚠ 目錄不存在：${cwd}，改在 \$HOME 還原")" >&2
     cd "$HOME"
   fi
-  exec omp --resume "$id"
+  exec "$OMP_BIN" --resume "$id"
 }
 
 main() {

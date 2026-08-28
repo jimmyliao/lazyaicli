@@ -25,5 +25,5 @@ ops() {
       *)   echo "⚠ directory not found: ${dir} — resuming in place" >&2 ;;
     esac
   fi
-  command omp --resume "$id"
+  command "${OPS_OMP_BIN:-omp}" --resume "$id"
 }
